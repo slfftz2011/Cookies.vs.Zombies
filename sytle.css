@@ -1,0 +1,44 @@
+@layer utilities {
+    .text-shadow { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); }
+    .cookie-glow { box-shadow: 0 0 15px rgba(212, 167, 106, 0.8); }
+    .reputation-glow { box-shadow: 0 0 15px rgba(139, 92, 246, 0.6); }
+    .shop-glow { box-shadow: 0 0 15px rgba(74, 222, 128, 0.6); }
+    .inventory-glow { box-shadow: 0 0 15px rgba(96, 165, 250, 0.6); }
+    .pulse-slow { animation: pulse 3s cubic-bezier(0.4,0,0.6,1) infinite; }
+    .btn-hover { transition: all 0.2s ease; }
+    .btn-hover:hover { transform: translateY(-2px); }
+    .btn-hover:active { transform: translateY(1px); }
+    .item-hover { transition: all 0.2s ease; }
+    .item-hover:hover { transform: scale(1.02); }
+    .scrollable::-webkit-scrollbar { width: 6px; }
+    .scrollable::-webkit-scrollbar-track { background: #f8e1b5; border-radius: 10px; }
+    .scrollable::-webkit-scrollbar-thumb { background-color: #d4a76a; border-radius: 10px; }
+    @keyframes clickEffect { 0% { transform: scale(1); } 50% { transform: scale(0.92); } 100% { transform: scale(1); } }
+    .clicking { animation: clickEffect 0.15s ease-in-out; }
+    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-35px); } }
+    .floating { position: absolute; pointer-events: none; animation: floatUp 0.8s ease-out forwards; font-weight: bold; text-shadow: 1px 1px 0 rgba(0,0,0,0.3); z-index: 500; }
+    @keyframes levelUp { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+    .level-up-animation { animation: levelUp 0.4s ease; }
+    .toast-message {
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2d2f36; color: #ffd966; padding: 10px 20px; border-radius: 40px; font-weight: bold; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 14px; pointer-events: none; backdrop-filter: blur(4px);
+        animation: toastFade 2.5s ease forwards;
+    }
+    @keyframes toastFade { 0% { opacity: 0; bottom: 0; } 15% { opacity: 1; bottom: 25px; } 85% { opacity: 1; bottom: 25px; } 100% { opacity: 0; bottom: 0; } }
+}
+.global-tooltip {
+    position: fixed;
+    background: #1f2937;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    max-width: 260px;
+    z-index: 99999;
+    pointer-events: none;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    transition: opacity 0.1s;
+    line-height: 1.4;
+    border-left: 4px solid #f59e0b;
+    font-family: system-ui, 'Segoe UI', sans-serif;
+}
+.global-tooltip strong { color: #fbbf24; }

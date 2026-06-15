@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>曲奇挂机 · 灾变纪元</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="./config.js"></script>
+    <link href="./sytle.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-amber-50 to-orange-100 font-game min-h-screen p-4 md:p-6 flex justify-center items-start">
+    <div class="w-full max-w-7xl flex flex-col lg:flex-row gap-6">
+        <!-- 左侧游戏主区域 -->
+        <div class="flex-1 flex flex-col items-center">
+            <header class="text-center mb-5">
+                <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-cookie-darker text-shadow">🍪 曲奇挂机 · 灾变纪元</h1>
+                <p class="text-gray-600">点击曲奇，强化自身，应对随机事件！</p>
+            </header>
+
+            <div class="bg-white/80 backdrop-blur-sm rounded-xl p-5 shadow-lg w-full text-center mb-6">
+                <p class="text-gray-600 text-lg">🍪 曲奇储量</p>
+                <p id="cookieCount" class="text-5xl font-bold text-cookie-darker">0</p>
+            </div>
+
+            <div class="relative mb-7">
+                <button id="cookieButton" class="w-[clamp(160px,55vw,300px)] h-[clamp(160px,55vw,300px)] rounded-full bg-cookie hover:bg-cookie-dark active:bg-cookie-darker transition-all shadow-2xl cookie-glow pulse-slow flex items-center justify-center cursor-pointer">
+                    <i class="fa fa-birthday-cake text-[clamp(70px,28vw,160px)] text-cookie-darker"></i>
+                </button>
+            </div>
+
+            <div id="featureButtons" class="grid grid-cols-2 gap-4 w-full max-w-md mb-5" style="display: none;">
+                <button id="shopButton" class="bg-shop hover:bg-shop-dark text-white font-bold py-3 rounded-xl shadow-md btn-hover shop-glow"><i class="fa fa-shopping-bag mr-2"></i>商店</button>
+                <button id="inventoryButton" class="bg-inventory hover:bg-inventory-dark text-white font-bold py-3 rounded-xl shadow-md btn-hover inventory-glow"><i class="fa fa-suitcase mr-2"></i>背包 <span id="inventorySlots" class="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">4/104</span></button>
+            </div>
+            <div id="unlockHint" class="bg-white/80 rounded-xl p-3 mb-5 w-full max-w-md text-center shadow"><i class="fa fa-lock text-accent mr-2"></i>达到10级解锁商店 & 背包</div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full mb-6">
+                <div class="bg-white/80 p-3 rounded-xl shadow"><i class="fa fa-hand-pointer-o text-accent mr-1"></i>点击收益 <span id="clickValueDisplay" class="font-bold block text-cookie-darker text-xl">+5</span></div>
+                <div class="bg-white/80 p-3 rounded-xl shadow"><i class="fa fa-clock-o text-accent mr-1"></i>自动收益 <span id="autoValueDisplay" class="font-bold block text-cookie-darker text-xl">+1/秒</span></div>
+                <div class="bg-white/80 p-3 rounded-xl shadow"><i class="fa fa-level-up text-accent mr-1"></i>升级等级 <span id="upgradeLevelDisplay" class="font-bold block">等级 0</span></div>
+                <div class="bg-white/80 p-3 rounded-xl shadow"><i class="fa fa-star text-reputation mr-1"></i>声望等级 <span id="reputationLevelDisplay" class="font-bold text-reputation">声望 0</span></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
+                <button id="upgradeButton" class="bg-accent hover:bg-accent-dark text-white font-bold py-3 rounded-xl shadow-md btn-hover disabled:opacity-50"><i class="fa fa-rocket mr-2"></i>升级点击 <span id="upgradeCostDisplay">(10曲奇)</span></button>
+                <button id="reputationButton" class="bg-reputation hover:bg-reputation-dark text-white font-bold py-3 rounded-xl shadow-md reputation-glow btn-hover disabled:opacity-50"><i class="fa fa-star mr-2"></i>提升声望 <span id="reputationCostDisplay">(1000曲奇)</span></button>
+            </div>
+        </div>
+
+        <!-- 右侧聊天 & 事件面板 -->
+        <div class="w-full lg:w-96 flex flex-col bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-amber-200 overflow-hidden h-[600px] lg:h-[80vh]">
+            <div class="bg-chat text-white p-3 flex items-center gap-2"><i class="fa fa-comments"></i><span class="font-bold">闲聊广场 · 事件播报</span><span id="eventToggleBadge" class="ml-auto text-xs bg-green-700 px-2 py-0.5 rounded-full">事件ON</span></div>
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-3 space-y-2 text-sm bg-gray-50 scrollable"></div>
+            <div class="p-2 border-t flex gap-2 bg-white">
+                <input type="text" id="chatInput" placeholder="输入消息或作弊指令 (/help)" class="flex-1 border rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300">
+                <button id="sendChatBtn" class="bg-amber-600 text-white px-4 rounded-full hover:bg-amber-700"><i class="fa fa-send"></i></button>
+            </div>
+            <div id="DevState" class="text-[10px] text-center text-gray-400 p-1"></div>
+        </div>
+    </div>
+
+    <!-- 商店模态框 -->
+    <div id="shopModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col modal">
+            <div class="p-5 border-b flex justify-between items-center bg-white sticky top-0 z-30"><h2 class="text-2xl font-bold text-shop-dark"><i class="fa fa-shopping-bag mr-2"></i>曲奇商店</h2><button id="closeShopButton" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button></div>
+            <div class="p-4 overflow-y-auto scrollable flex-grow" id="shopItemsContainer"></div>
+            <div class="p-3 text-center text-gray-400 text-sm border-t">✨ 购买每排最后的圣物解锁更强大装备 ✨</div>
+        </div>
+    </div>
+    <!-- 背包模态框 -->
+    <div id="inventoryModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col modal">
+            <div class="p-5 border-b flex justify-between items-center sticky top-0 bg-white z-30"><h2 class="text-2xl font-bold text-inventory-dark"><i class="fa fa-suitcase mr-2"></i>背包 · 可分解返还曲奇</h2><button id="closeInventoryButton" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button></div>
+            <div class="p-4 overflow-y-auto scrollable flex-grow" id="inventoryGridContainer"></div>
+        </div>
+    </div>
+
+
+    <script src="./script.js"></script>
+</body>
+</html>
