@@ -16,6 +16,7 @@ const shopItemsData = [
     [{id:17,name:"曲奇神祇化身",price:2900000,bonus:900,maxStack:5,icon:"fa-star",desc:"曲奇之神的祝福"},{id:18,name:"宇宙面团",price:4900000,bonus:1300,maxStack:5,icon:"fa-globe",desc:"来自宇宙的神秘面团"},{id:19,name:"时间糖霜",price:8200000,bonus:2000,maxStack:5,icon:"fa-hourglass-half",desc:"扭曲时间的糖霜"},{id:20,name:"维度烤盘",price:13500000,bonus:3000,maxStack:5,icon:"fa-cube",desc:"跨越维度的烤盘"},{id:21,name:"永恒酵母",price:24500000,bonus:4500,maxStack:5,icon:"fa-bolt",desc:"永不失效的神奇酵母"},{id:22,name:"创造之巧克力",price:39000000,bonus:6500,maxStack:5,icon:"fa-moon-o",desc:"创世之力巧克力"},{id:23,name:"绝对曲奇理论",price:68000000,bonus:9500,maxStack:5,icon:"fa-flask",desc:"解释曲奇本质的理论"},{id:24,name:"曲奇奇点",price:118000000,bonus:15000,maxStack:5,icon:"fa-black-tie",desc:"曲奇的终极形态，解锁下一排"}]
 ];
 const allShopItems = shopItemsData.flat();
+const MAX_CHAT_MSGS = 200;
 
 const System = {a:'text-purple-700 bg-purple-50', b:'border-l-4 border-purple-400', c:'text-purple-600'};
 const Player = {a:'text-gray-800', b:'', c:''};
@@ -84,6 +85,11 @@ function addChatMessage(sender, text, className){
     msgDiv.innerHTML=`<span class="font-bold ${className.c}">${sender}:</span> ${text}`;
     chatDiv.appendChild(msgDiv);
     msgDiv.scrollIntoView({behavior:'smooth',block:'nearest'});
+    chatDiv.appendChild(msgDiv);
+    while (chatDiv.children.length > MAX_CHAT_MSGS) {
+        chatDiv.removeChild(chatDiv.firstChild);
+    }
+    msgDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function applyBuffValue(base, type){ 
@@ -95,6 +101,9 @@ function applyBuffValue(base, type){
         } 
     } 
     return Math.max(0, val); 
+}
+function syncLastUpdate() {
+    gameState.lastUpdate = Date.now();
 }
 function updateUI(){
     cookieCountSpan.innerText = Math.floor(gameState.cookies).toLocaleString();
@@ -117,8 +126,33 @@ function updateUI(){
 }
 function calcUpgradeCost(level){ return Math.floor(gameState.baseUpgradeCost * Math.pow(gameState.upgradeCostMultiplier, level)); }
 function calcRepCost(level){ if(level>=30) return Infinity; return Math.floor(gameState.baseReputationCost * Math.pow(gameState.reputationCostMultiplier, level)); }
-function gainCookies(amount, event, isSilent=false){ let finalAmount=amount; if(!isSilent){ finalAmount = applyBuffValue(amount, 'click'); } gameState.cookies+=finalAmount; if(!isSilent && event){ let fl=document.createElement('div'); fl.className='floating'; fl.innerText=`+${Math.floor(finalAmount)}`; let rect=cookieBtn.getBoundingClientRect(); let x=event.clientX-rect.left, y=event.clientY-rect.top; fl.style.left=`${x}px`; fl.style.top=`${y}px`; cookieBtn.appendChild(fl); setTimeout(()=>fl.remove(),800); } updateUI(); }
-function spend(amount){ if(gameState.cookies>=amount){ gameState.cookies-=amount; updateUI(); return true; } return false; }
+function gainCookies(amount, event, isSilent=false){
+    let finalAmount=amount;
+    if(!isSilent){
+        finalAmount = applyBuffValue(amount, 'click');
+    }
+    gameState.cookies+=finalAmount;
+    if(!isSilent && event){
+        let fl=document.createElement('div');
+        fl.className='floating';
+        fl.innerText=`+${Math.floor(finalAmount)}`;
+        let rect=cookieBtn.getBoundingClientRect();
+        let x=event.clientX-rect.left, y=event.clientY-rect.top;
+        fl.style.left=`${x}px`; fl.style.top=`${y}px`;
+        cookieBtn.appendChild(fl);
+        setTimeout(()=>fl.remove(),800);
+    }
+    syncLastUpdate();
+    updateUI();
+}
+function spend(amount){
+    if(gameState.cookies>=amount){
+        gameState.cookies-=amount;
+        updateUI();
+        syncLastUpdate();
+        return true;
+    } return false;
+}
 
 function buyItem(item){
     let existingStack=gameState.inventory.find(i=>i.id===item.id);
@@ -126,6 +160,7 @@ function buyItem(item){
     if(!existingStack && gameState.inventory.length>=gameState.inventorySlots){ showToast("背包格子不足，请升级等级解锁更多格子",true); return; }
     if(gameState.cookies>=item.price){
         gameState.cookies-=item.price;
+        syncLastUpdate();
         if(existingStack){ existingStack.count++; }
         else{ gameState.inventory.push({id:item.id,count:1}); }
         calculateTotalBonus();
@@ -143,7 +178,7 @@ function buyItem(item){
 function calculateTotalBonus(){ let total=0; for(let it of gameState.inventory){ let data=allShopItems.find(d=>d.id===it.id); if(data) total+=data.bonus*it.count; } gameState.totalItemBonus=total; }
 function renderShop(){ if(!shopContainer) return; shopContainer.innerHTML=''; for(let r=0; r<gameState.shopRowsUnlocked && r<shopItemsData.length; r++){ let rowDiv=document.createElement('div'); rowDiv.className='mb-6'; rowDiv.innerHTML=`<h3 class="font-bold text-lg mb-2">🍪 第${r+1}排</h3><div class="flex flex-wrap gap-3"></div>`; let itemsDiv=rowDiv.querySelector('div'); shopItemsData[r].forEach(item=>{ let cnt=gameState.inventory.find(i=>i.id===item.id)?.count||0; let maxed=cnt>=item.maxStack; let btnDiv=document.createElement('div'); btnDiv.className=`bg-white border rounded-xl p-2 w-28 text-center shadow-sm ${maxed?'opacity-60': 'cursor-pointer hover:scale-105 transition'}`; if(!maxed) btnDiv.onclick=()=>buyItem(item); btnDiv.innerHTML=`<i class="fa ${item.icon} text-2xl text-shop"></i><div class="font-bold text-sm">${item.name}</div><div class="text-green-600 text-xs">+${item.bonus}</div><div class="text-xs">${item.price.toLocaleString()}</div><div class="text-[10px]">${cnt}/${item.maxStack}</div>`; bindTooltip(btnDiv, item.name, item.desc, item.bonus, `${item.price.toLocaleString()}曲奇`, `${cnt}/${item.maxStack}个`); itemsDiv.appendChild(btnDiv); }); shopContainer.appendChild(rowDiv); } }
 function updateInventoryDisplay(){ if(!invGridContainer) return; invGridContainer.innerHTML=''; let gridDiv=document.createElement('div'); gridDiv.className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3'; for(let i=0;i<gameState.inventorySlots;i++){ let invItem=i<gameState.inventory.length?gameState.inventory[i]:null; let slotDiv=document.createElement('div'); slotDiv.className='bg-gray-100 border rounded-xl p-2 relative min-h-[100px] flex flex-col items-center justify-center'; if(invItem){ let data=allShopItems.find(d=>d.id===invItem.id); if(data){ slotDiv.innerHTML=`<i class="fa ${data.icon} text-3xl text-inventory"></i><div class="font-bold text-sm mt-1">${data.name}</div><div class="text-green-600 text-xs">+${data.bonus}</div><div class="text-xs">x${invItem.count}</div><button class="decompose-btn mt-2 bg-red-400 text-white text-xs px-2 py-1 rounded-full hover:bg-red-600" data-id="${data.id}" data-count="1">💔分解</button>`; let decoBtn=slotDiv.querySelector('.decompose-btn'); decoBtn.addEventListener('click',(e)=>{ e.stopPropagation(); decomposeItem(data.id); }); bindTooltip(slotDiv, data.name, data.desc, data.bonus, `${data.price.toLocaleString()}曲奇`, `${invItem.count}/${data.maxStack}个`); } } else { slotDiv.innerHTML=`<i class="fa fa-box-open text-gray-400 text-4xl"></i><div class="text-xs text-gray-400">空闲格子</div>`; } gridDiv.appendChild(slotDiv); } invGridContainer.appendChild(gridDiv); }
-function decomposeItem(itemId){ let idx=gameState.inventory.findIndex(i=>i.id===itemId); if(idx===-1) return; let itemData=allShopItems.find(d=>d.id===itemId); let priceBack=Math.floor(itemData.price*0.6); gameState.cookies+=priceBack; gameState.inventory[idx].count--; if(gameState.inventory[idx].count<=0) gameState.inventory.splice(idx,1); calculateTotalBonus(); updateInventoryDisplay(); updateUI(); showToast(`分解返还 ${priceBack.toLocaleString()} 曲奇`); addChatMessage("♻️ 回收", `分解了 ${itemData.name} 获得 ${priceBack.toLocaleString()}曲奇`, System); }
+function decomposeItem(itemId){ let idx=gameState.inventory.findIndex(i=>i.id===itemId); if(idx===-1) return; let itemData=allShopItems.find(d=>d.id===itemId); let priceBack=Math.floor(itemData.price*0.6); gameState.cookies+=priceBack; gameState.inventory[idx].count--; if(gameState.inventory[idx].count<=0) gameState.inventory.splice(idx,1); calculateTotalBonus(); updateInventoryDisplay(); syncLastUpdate();  updateUI(); showToast(`分解返还 ${priceBack.toLocaleString()} 曲奇`); addChatMessage("♻️ 回收", `分解了 ${itemData.name} 获得 ${priceBack.toLocaleString()}曲奇`, System); }
 function checkUnlockSlotByLevel(){ let newSlotCount=4+ Math.floor((gameState.upgradeLevel- gameState.slotUnlockLevel)/gameState.slotUnlockInterval); if(newSlotCount<4) newSlotCount=4; if(newSlotCount>gameState.maxInventorySlots) newSlotCount=gameState.maxInventorySlots; if(newSlotCount>gameState.inventorySlots){ gameState.inventorySlots=newSlotCount; updateInventoryDisplay(); showToast(`🎒 背包格子扩充至 ${gameState.inventorySlots} !`); } }
 function upgradeClick(){ let cost=calcUpgradeCost(gameState.upgradeLevel); if(spend(cost)){ gameState.upgradeLevel++; gameState.clickValue+=gameState.upgradeValueIncrease; checkUnlockSlotByLevel(); updateUI(); addChatMessage("⚡升级","点击等级提升！",Level); cookieBtn.classList.add('level-up-animation'); setTimeout(()=>cookieBtn.classList.remove('level-up-animation'),300); } }
 function upgradeReputation(){ if(gameState.reputationLevel>=30) return; let cost=calcRepCost(gameState.reputationLevel); if(spend(cost)){ gameState.reputationLevel++; gameState.autoValue+=gameState.reputationAutoGainIncrease; updateUI(); addChatMessage("🌟 声望", `声望提升至 ${gameState.reputationLevel} 自动收益+${gameState.reputationAutoGainIncrease}`, Level); repBtn.classList.add('reputation-up-animation'); setTimeout(()=>repBtn.classList.remove('reputation-up-animation'),400); } }
@@ -165,9 +200,9 @@ function stopAllActiveEvents() {
 }
 function startEventLoop(){ if(eventInterval) clearInterval(eventInterval); if(!eventEnabled) return; eventInterval=setInterval(()=>{ if(!eventEnabled) return; let r=Math.random(); if(r<0.38) triggerRandomEvent(); }, 43000); }
 const eventList=[
-    {name:"🍀 曲奇雨", effect:(cb)=>{ let gain=Math.floor(gameState.clickValue*15+500); gameState.cookies+=gain; addChatMessage("🌈事件","天降曲奇雨！ +"+gain.toLocaleString()+"曲奇",event_Lucky); if(cb)cb(); } },
+    {name:"🍀 曲奇雨", effect:(cb)=>{ let gain=Math.floor(gameState.clickValue*15+500); gameState.cookies+=gain; syncLastUpdate();  addChatMessage("🌈事件","天降曲奇雨！ +"+gain.toLocaleString()+"曲奇",event_Lucky); if(cb)cb(); } },
     {name:"📈 烘焙灵感", effect:()=>{ let buffId=Date.now()+Math.random(); gameState.activeBuffs.push({id:buffId,target:'click',value:0.4,isMultiplier:true,expireTime:Date.now()+60000}); addChatMessage("✨事件","点击收益+40%持续60秒！",event_Lucky); setTimeout(()=>{ let idx=gameState.activeBuffs.findIndex(b=>b.id===buffId); if(idx!==-1) gameState.activeBuffs.splice(idx,1); addChatMessage("⏰提示","灵感消退，点击收益恢复",System); updateUI(); },60000); updateUI(); } },
-    {name:"🔥 烤箱故障", effect:()=>{ let loss=Math.floor(gameState.cookies*0.12); loss=Math.min(loss,gameState.cookies*0.7); gameState.cookies=Math.max(0,gameState.cookies-loss); addChatMessage("💥事件","烤箱爆炸！损失 "+loss.toLocaleString()+"曲奇",event_Negative); updateUI(); } },
+    {name:"🔥 烤箱故障", effect:()=>{ let loss=Math.floor(gameState.cookies*0.12); loss=Math.min(loss,gameState.cookies*0.7); gameState.cookies=Math.max(0,gameState.cookies-loss); addChatMessage("💥事件","烤箱爆炸！损失 "+loss.toLocaleString()+"曲奇",event_Negative); syncLastUpdate();  updateUI(); } },
     {name:"👻 小偷光顾", effect:()=>{ let hasItem=gameState.inventory.filter(i=>i.count>0); if(hasItem.length){ let rand=hasItem[Math.floor(Math.random()*hasItem.length)]; let data=allShopItems.find(d=>d.id===rand.id); let stolenCount=Math.min(rand.count,1); rand.count-=stolenCount; if(rand.count<=0) gameState.inventory=gameState.inventory.filter(i=>i.id!==rand.id); calculateTotalBonus(); updateInventoryDisplay(); addChatMessage("👾事件",`${data.name} 被偷走了1个！`,event_Negative); } else{ addChatMessage("😌事件","小偷来了但背包空空，悻悻离去",System); } updateUI(); } },
     {name:"📉 酵母枯萎", effect:()=>{ let debuffId=Date.now()+Math.random(); gameState.activeBuffs.push({id:debuffId,target:'auto',value:-0.3,isMultiplier:true,expireTime:Date.now()+50000}); addChatMessage("🌧️事件","自动收益-30%持续50秒！",event_Negative); setTimeout(()=>{ let idx=gameState.activeBuffs.findIndex(b=>b.id===debuffId); if(idx!==-1) gameState.activeBuffs.splice(idx,1); addChatMessage("🍪提示","枯萎结束，自动收益恢复",System); updateUI(); },50000); updateUI(); } }
 ];
@@ -175,7 +210,7 @@ function triggerRandomEvent(){ let ev=eventList[Math.floor(Math.random()*eventLi
 function forceEventById(id){ if(id>=0 && id<eventList.length) eventList[id].effect(); else addChatMessage("系统","无效事件ID",System); }
 
 // 自动收益循环
-setInterval(()=>{ let now=Date.now(); let diff=(now-gameState.lastUpdate)/1000; if(diff>=1){ let finalAuto=applyBuffValue(gameState.autoValue,'auto'); let add=Math.floor(diff*finalAuto); if(add>0){ gameState.cookies+=add; updateUI(); } gameState.lastUpdate=now; } },1000);
+setInterval(()=>{ let now=Date.now(); let diff=(now-gameState.lastUpdate)/1000; if(diff>=1){ let finalAuto=applyBuffValue(gameState.autoValue,'auto'); let add=Math.floor(diff*finalAuto); if(add>0){ gameState.cookies+=add; syncLastUpdate();  updateUI(); } gameState.lastUpdate=now; } },1000);
 
 // ---------- 作弊指令 (修复attribute为永久，必须提供uuid) ----------
 function parseNumberWithSuffix(str, floorResult=true){ 
@@ -195,13 +230,21 @@ function handleCommand(cmd){
     if(!isDev){ addChatMessage("🔒系统","作弊模式未开启 (isDev=false)",System); return; }
     let parts=cmd.trim().split(/\s+/); let main=parts[0];
     if(main==='/help'){ addChatMessage("指令表","/cookie set/add/remove <数量> /shop lock/unlock <层数> /level click/rep set/add/remove <数值> /good give/clear <商品ID> <数量> /event happen <0~4> /event stop /attribute click/auto add/mul <数值> <UUID> /attribute remove <UUID>",System); return; }
-    if(main==='/cookie' && parts[1] && parts[2]){ let num=parseNumberWithSuffix(parts[2], true); if(isNaN(num)){ addChatMessage("错误","数量格式有误",System); return; } if(parts[1]==='add') gameState.cookies+=num; else if(parts[1]==='set') gameState.cookies=num; else if(parts[1]==='remove') gameState.cookies=Math.max(0,gameState.cookies-num); else return; updateUI(); addChatMessage("指令","曲奇已修改",System); }
+    if(main==='/cookie' && parts[1] && parts[2]){ let num=parseNumberWithSuffix(parts[2], true); if(isNaN(num)){ addChatMessage("错误","数量格式有误",System); return; } if(parts[1]==='add') gameState.cookies+=num; else if(parts[1]==='set') gameState.cookies=num; else if(parts[1]==='remove') gameState.cookies=Math.max(0,gameState.cookies-num); else return; syncLastUpdate();  updateUI(); addChatMessage("指令","曲奇已修改",System); }
     else if(main==='/shop' && parts[1] && parts[2]){ let level=parseInt(parts[2]); if(parts[1]==='unlock'){ if(level>=1 && level<=3) gameState.shopRowsUnlocked=level; renderShop(); addChatMessage("指令",`商店解锁至第${level}排`,System); } else if(parts[1]==='lock'){ if(level>=1) gameState.shopRowsUnlocked=Math.max(1,level-1); renderShop(); addChatMessage("指令","商店行锁定",System); } }
     else if(main==='/level' && parts[2] && parts[3]){ let val = parseNumberWithSuffix(parts[3], true); if(isNaN(val)) return; if(parts[1]==='click'){ if(parts[2]==='set') gameState.upgradeLevel=Math.max(0,val); else if(parts[2]==='add') gameState.upgradeLevel+=val; else if(parts[2]==='remove') gameState.upgradeLevel=Math.max(0,gameState.upgradeLevel-val); gameState.clickValue=5+gameState.upgradeLevel*gameState.upgradeValueIncrease; checkUnlockSlotByLevel(); updateUI(); } else if(parts[1]==='rep'){ if(parts[2]==='set') gameState.reputationLevel=Math.min(30,val); else if(parts[2]==='add') gameState.reputationLevel=Math.min(30,gameState.reputationLevel+val); else if(parts[2]==='remove') gameState.reputationLevel=Math.max(0,gameState.reputationLevel-val); gameState.autoValue=1+gameState.reputationLevel*gameState.reputationAutoGainIncrease; updateUI(); } addChatMessage("指令","等级调整完成",System); }
     else if(main==='/good' && parts[1] && parts[2]){ let id=parseInt(parts[2]); let count=parts[3]?parseInt(parts[3]):1; let item=allShopItems.find(i=>i.id===id); if(!item){ addChatMessage("错误","无效商品ID",System); return; } if(parts[1]==='give'){ for(let c=0;c<count;c++){ let exist=gameState.inventory.find(i=>i.id===id); if(exist && exist.count<item.maxStack) exist.count++; else if(!exist && gameState.inventory.length<gameState.inventorySlots) gameState.inventory.push({id:id,count:1}); else { addChatMessage("警告","背包已满/达到堆叠上限",System); break; } } calculateTotalBonus(); updateInventoryDisplay(); updateUI(); addChatMessage("指令",`给予 ${item.name} x${count}`,System); } else if(parts[1]==='clear'){ gameState.inventory=gameState.inventory.filter(i=>i.id!==id); calculateTotalBonus(); updateInventoryDisplay(); updateUI(); addChatMessage("指令",`清除所有 ${item.name}`,System); } }
     else if(main==='/event' && parts[1]){ 
         if(parts[1]==='happen' && parts[2]){ let eid=parseInt(parts[2]); if(eid>=0 && eid<eventList.length) forceEventById(eid); else addChatMessage("事件","ID范围0-4",System); } 
-        else if(parts[1]==='stop'){ stopAllActiveEventsAndDisable(); } 
+        else if(parts[1]==='stop'){ stopAllActiveEventsAndDisable(); }
+        else if (main === '/event' && parts[1] === 'start') {
+            if (!eventEnabled) {
+                eventEnabled = true;
+                startEventLoop();
+                document.getElementById('eventToggleBadge').innerText = "事件ON";
+                addChatMessage("🌤️ 事件", "随机事件已重新开启", System);
+            }
+        }
         else if(parts[1]==='clear'){ stopAllActiveEvents(); }
     }
     else if(main==='/attribute' && parts[1]){

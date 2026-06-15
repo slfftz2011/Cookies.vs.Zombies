@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>曲奇挂机 · 灾变纪元</title>
+    <title>🍪曲奇挂机 · 灾变纪元</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script src="./config.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <link href="./sytle.css" rel="stylesheet">
 </head>
 <body class="bg-gradient-to-br from-amber-50 to-orange-100 font-game min-h-screen p-4 md:p-6 flex justify-center items-start">
@@ -62,7 +62,7 @@
 
     <!-- 商店模态框 -->
     <div id="shopModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col modal">
+        <div class="bg-white rounded-2xl overflow-hidden shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col">
             <div class="p-5 border-b flex justify-between items-center bg-white sticky top-0 z-30"><h2 class="text-2xl font-bold text-shop-dark"><i class="fa fa-shopping-bag mr-2"></i>曲奇商店</h2><button id="closeShopButton" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button></div>
             <div class="p-4 overflow-y-auto scrollable flex-grow" id="shopItemsContainer"></div>
             <div class="p-3 text-center text-gray-400 text-sm border-t">✨ 购买每排最后的圣物解锁更强大装备 ✨</div>
@@ -70,7 +70,7 @@
     </div>
     <!-- 背包模态框 -->
     <div id="inventoryModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col modal">
+        <div class="bg-white rounded-2xl overflow-hidden shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col">
             <div class="p-5 border-b flex justify-between items-center sticky top-0 bg-white z-30"><h2 class="text-2xl font-bold text-inventory-dark"><i class="fa fa-suitcase mr-2"></i>背包 · 可分解返还曲奇</h2><button id="closeInventoryButton" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button></div>
             <div class="p-4 overflow-y-auto scrollable flex-grow" id="inventoryGridContainer"></div>
         </div>
