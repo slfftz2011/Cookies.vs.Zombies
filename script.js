@@ -201,6 +201,11 @@ function forceEventById(id){ if(id>=0 && id<eventList.length) eventList[id].effe
 setInterval(()=>{ let now=Date.now(); let diff=(now-gameState.lastUpdate)/1000; if(diff>=1){ let finalAuto=applyBuffValue(gameState.autoValue,'auto'); let add=Math.floor(diff*finalAuto); if(add>0){ gameState.cookies+=add; updateUI(); } gameState.lastUpdate=now; } },1000);
 
 // ---------- 作弊指令 ----------
+function syncLastUpdate() {
+    gameState.lastUpdate = Date.now();
+}
+
+// 已有的 formatNumber 和 parseNumberWithSuffix 函数（见上文）
 function parseNumberWithSuffix(str, floorResult = true) {
     // 去除首尾空格
     str = str.trim();
@@ -231,46 +236,223 @@ function parseNumberWithSuffix(str, floorResult = true) {
     // 3. 如果都不匹配，返回 NaN
     return NaN;
 }
-function handleCommand(cmd){
-    if(!isDev){ addChatMessage("🔒系统","作弊模式未开启 (isDev=false)",System); return; }
-    let parts=cmd.trim().split(/\s+/); let main=parts[0];
-    if(main==='/help'){ addChatMessage("指令表","/cookie set/add/remove <数量> /shop lock/unlock <层数> /level click/rep set/add/remove <数值> /good give/clear <商品ID> <数量> /event happen <0~4> /event stop /attribute click/auto add/mul <数值> <UUID> /attribute remove <UUID>",System); return; }
-    if(main==='/cookie' && parts[1] && parts[2]){ let num=parseNumberWithSuffix(parts[2], true); if(isNaN(num)){ addChatMessage("错误","数量格式有误",System); return; } if(parts[1]==='add') gameState.cookies+=num; else if(parts[1]==='set') gameState.cookies=num; else if(parts[1]==='remove') gameState.cookies=Math.max(0,gameState.cookies-num); else return; updateUI(); addChatMessage("指令","曲奇已修改",System); }
-    else if(main==='/shop' && parts[1] && parts[2]){ let level=parseInt(parts[2]); if(parts[1]==='unlock'){ if(level>=1 && level<=3) gameState.shopRowsUnlocked=level; renderShop(); addChatMessage("指令",`商店解锁至第${level}排`,System); } else if(parts[1]==='lock'){ if(level>=1) gameState.shopRowsUnlocked=Math.max(1,level-1); renderShop(); addChatMessage("指令","商店行锁定",System); } }
-    else if(main==='/level' && parts[2] && parts[3]){ let val = parseNumberWithSuffix(parts[3], true); if(isNaN(val)) return; if(parts[1]==='click'){ if(parts[2]==='set') gameState.upgradeLevel=Math.max(0,val); else if(parts[2]==='add') gameState.upgradeLevel+=val; else if(parts[2]==='remove') gameState.upgradeLevel=Math.max(0,gameState.upgradeLevel-val); gameState.clickValue=5+gameState.upgradeLevel*gameState.upgradeValueIncrease; checkUnlockSlotByLevel(); updateUI(); } else if(parts[1]==='rep'){ if(parts[2]==='set') gameState.reputationLevel=Math.min(30,val); else if(parts[2]==='add') gameState.reputationLevel=Math.min(30,gameState.reputationLevel+val); else if(parts[2]==='remove') gameState.reputationLevel=Math.max(0,gameState.reputationLevel-val); gameState.autoValue=1+gameState.reputationLevel*gameState.reputationAutoGainIncrease; updateUI(); } addChatMessage("指令","等级调整完成",System); }
-    else if(main==='/good' && parts[1] && parts[2]){ let id=parseInt(parts[2]); let count=parts[3]?parseInt(parts[3]):1; let item=allShopItems.find(i=>i.id===id); if(!item){ addChatMessage("错误","无效商品ID",System); return; } if(parts[1]==='give'){ for(let c=0;c<count;c++){ let exist=gameState.inventory.find(i=>i.id===id); if(exist && exist.count<item.maxStack) exist.count++; else if(!exist && gameState.inventory.length<gameState.inventorySlots) gameState.inventory.push({id:id,count:1}); else { addChatMessage("警告","背包已满/达到堆叠上限",System); break; } } calculateTotalBonus(); updateInventoryDisplay(); updateUI(); addChatMessage("指令",`给予 ${item.name} x${count}`,System); } else if(parts[1]==='clear'){ gameState.inventory=gameState.inventory.filter(i=>i.id!==id); calculateTotalBonus(); updateInventoryDisplay(); updateUI(); addChatMessage("指令",`清除所有 ${item.name}`,System); } }
-    else if(main==='/event' && parts[1]){ 
-        if(parts[1]==='happen' && parts[2]){ let eid=parseInt(parts[2]); if(eid>=0 && eid<eventList.length) forceEventById(eid); else addChatMessage("事件","ID范围0-4",System); } 
-        else if(parts[1]==='stop'){ stopAllActiveEventsAndDisable(); } 
-        else if(parts[1]==='clear'){ stopAllActiveEvents(); }
-        else if(parts[1]==='start'){ // [MOD] 新增启动事件指令
-            if(!eventEnabled){
-                eventEnabled=true;
-                startEventLoop();
-                document.getElementById('eventToggleBadge').innerText="事件ON";
-                addChatMessage("🌤️ 事件","随机事件已重新开启",System);
-            }
-        }
+function handleCommand(cmd) {
+    if (!isDev) {
+        addChatMessage("🔒系统", "作弊模式未开启 (isDev=false)", System);
+        return;
     }
-    else if(main==='/attribute' && parts[1]){
-        if(parts[1]==='remove' && parts[2]){
-            let uid = parts[2];
-            let idx = gameState.activeBuffs.findIndex(b => b.id === uid);
-            if(idx !== -1){
-                gameState.activeBuffs.splice(idx,1);
-                updateUI();
-                addChatMessage("属性",`已移除永久属性 UUID: ${uid}`,System);
-            } else addChatMessage("错误","未找到该UUID的永久属性",System);
+
+    const parts = cmd.trim().split(/\s+/);
+    const main = parts[0];
+
+    // ---------- /help ----------
+    if (main === '/help') {
+        addChatMessage("指令表",
+            "/cookie set/add/remove <数量> (支持 k/m/b/t/p/e/z/y 或科学计数法) | " +
+            "/shop lock/unlock <层数> | " +
+            "/level click/rep set/add/remove <数值> | " +
+            "/good give/clear <商品ID> <数量> | " +
+            "/event happen <0~4> /event stop /event start /event clear | " +
+            "/attribute click/auto add/mul <数值> <UUID> /attribute remove <UUID>",
+            System
+        );
+        return;
+    }
+
+    // ---------- /cookie ----------
+    if (main === '/cookie' && parts[1] && parts[2]) {
+        const num = parseNumberWithSuffix(parts[2], true);
+        if (isNaN(num)) {
+            addChatMessage("错误", "数量格式有误，支持 k/m/b/t/p/e/z/y 或科学计数法", System);
+            return;
         }
-        else if((parts[1]==='click' || parts[1]==='auto') && (parts[2]==='add' || parts[2]==='mul') && parts[3] && parts[4]){
-            let target = parts[1];
-            let op = parts[2];
-            let numRaw = parseFloat(parts[3]);
-            if(isNaN(numRaw)){ addChatMessage("错误","数值无效",System); return; }
-            let uuid = parts[4];
-            if(gameState.activeBuffs.some(b=>b.id===uuid)){ addChatMessage("错误","UUID已存在，请使用不重复的UUID",System); return; }
-            let isMultiplier = (op === 'mul');
-            let value = numRaw;
+        const action = parts[1];
+        if (action === 'add') {
+            gameState.cookies += num;
+            addChatMessage("指令", `曲奇已增加 ${formatNumber(num)}，当前：${formatNumber(gameState.cookies)}`, System);
+        } else if (action === 'set') {
+            gameState.cookies = num;
+            addChatMessage("指令", `曲奇已设为 ${formatNumber(gameState.cookies)}`, System);
+        } else if (action === 'remove') {
+            gameState.cookies = Math.max(0, gameState.cookies - num);
+            addChatMessage("指令", `曲奇已减少 ${formatNumber(num)}，当前：${formatNumber(gameState.cookies)}`, System);
+        } else {
+            addChatMessage("错误", "用法: /cookie add/set/remove <数量>", System);
+            return;
+        }
+        syncLastUpdate();
+        updateUI();
+        return;
+    }
+
+    // ---------- /shop ----------
+    if (main === '/shop' && parts[1] && parts[2]) {
+        const level = parseInt(parts[2]);
+        if (isNaN(level) || level < 1) {
+            addChatMessage("错误", "层数必须为正整数", System);
+            return;
+        }
+        if (parts[1] === 'unlock') {
+            const newRows = Math.min(level, shopItemsData.length);
+            gameState.shopRowsUnlocked = newRows;
+            renderShop();
+            addChatMessage("指令", `商店已解锁至第 ${newRows} 排`, System);
+        } else if (parts[1] === 'lock') {
+            const newRows = Math.max(1, level - 1);
+            gameState.shopRowsUnlocked = newRows;
+            renderShop();
+            addChatMessage("指令", `商店已锁定至第 ${newRows} 排`, System);
+        } else {
+            addChatMessage("错误", "用法: /shop unlock/lock <层数>", System);
+        }
+        return;
+    }
+
+    // ---------- /level ----------
+    if (main === '/level' && parts[2] && parts[3]) {
+        const val = parseNumberWithSuffix(parts[3], true);
+        if (isNaN(val)) {
+            addChatMessage("错误", "数值格式有误", System);
+            return;
+        }
+        const type = parts[1];   // 'click' 或 'rep'
+        const op = parts[2];     // 'set', 'add', 'remove'
+        if (type === 'click') {
+            if (op === 'set') gameState.upgradeLevel = Math.max(0, val);
+            else if (op === 'add') gameState.upgradeLevel += val;
+            else if (op === 'remove') gameState.upgradeLevel = Math.max(0, gameState.upgradeLevel - val);
+            else { addChatMessage("错误", "操作仅支持 set/add/remove", System); return; }
+            gameState.clickValue = 5 + gameState.upgradeLevel * gameState.upgradeValueIncrease;
+            checkUnlockSlotByLevel();
+            checkUnlockShopAndInventory(); // 若有
+            addChatMessage("指令", `点击等级已调整为 ${gameState.upgradeLevel}，点击收益：+${formatNumber(gameState.clickValue)}`, System);
+        } else if (type === 'rep') {
+            if (op === 'set') gameState.reputationLevel = Math.min(30, Math.max(0, val));
+            else if (op === 'add') gameState.reputationLevel = Math.min(30, gameState.reputationLevel + val);
+            else if (op === 'remove') gameState.reputationLevel = Math.max(0, gameState.reputationLevel - val);
+            else { addChatMessage("错误", "操作仅支持 set/add/remove", System); return; }
+            gameState.autoValue = 1 + gameState.reputationLevel * gameState.reputationAutoGainIncrease;
+            addChatMessage("指令", `声望等级已调整为 ${gameState.reputationLevel}，自动收益：+${formatNumber(gameState.autoValue)}/秒`, System);
+        } else {
+            addChatMessage("错误", "用法: /level click/rep set/add/remove <数值>", System);
+            return;
+        }
+        syncLastUpdate();
+        updateUI();
+        return;
+    }
+
+    // ---------- /good ----------
+    if (main === '/good' && parts[1] && parts[2]) {
+        const id = parseInt(parts[2]);
+        if (isNaN(id)) {
+            addChatMessage("错误", "商品ID必须为数字", System);
+            return;
+        }
+        const item = allShopItems.find(i => i.id === id);
+        if (!item) {
+            addChatMessage("错误", `未找到ID为 ${id} 的商品`, System);
+            return;
+        }
+        const action = parts[1];
+        if (action === 'give') {
+            let count = parts[3] ? parseInt(parts[3]) : 1;
+            if (isNaN(count) || count < 1) count = 1;
+            // 尝试给予
+            let given = 0;
+            for (let c = 0; c < count; c++) {
+                const exist = gameState.inventory.find(i => i.id === id);
+                if (exist && exist.count < item.maxStack) {
+                    exist.count++;
+                    given++;
+                } else if (!exist && gameState.inventory.length < gameState.inventorySlots) {
+                    gameState.inventory.push({ id: id, count: 1 });
+                    given++;
+                } else {
+                    break;
+                }
+            }
+            calculateTotalBonus();
+            updateInventoryDisplay();
+            syncLastUpdate();
+            updateUI();
+            addChatMessage("指令", `成功给予 ${item.name} x${given}（目标 ${count}）`, System);
+        } else if (action === 'clear') {
+            const removed = gameState.inventory.filter(i => i.id === id).reduce((sum, i) => sum + i.count, 0);
+            gameState.inventory = gameState.inventory.filter(i => i.id !== id);
+            calculateTotalBonus();
+            updateInventoryDisplay();
+            syncLastUpdate();
+            updateUI();
+            addChatMessage("指令", `已清除 ${item.name} 共 ${removed} 个`, System);
+        } else {
+            addChatMessage("错误", "用法: /good give/clear <商品ID> <数量>", System);
+        }
+        return;
+    }
+
+    // ---------- /event ----------
+    if (main === '/event' && parts[1]) {
+        const sub = parts[1];
+        if (sub === 'happen' && parts[2]) {
+            const eid = parseInt(parts[2]);
+            if (!isNaN(eid) && eid >= 0 && eid < eventList.length) {
+                forceEventById(eid);
+            } else {
+                addChatMessage("事件", "ID范围 0-4", System);
+            }
+        } else if (sub === 'stop') {
+            stopAllActiveEventsAndDisable();
+        } else if (sub === 'start') {
+            if (!eventEnabled) {
+                eventEnabled = true;
+                startEventLoop();
+                document.getElementById('eventToggleBadge').innerText = "事件ON";
+                addChatMessage("🌤️ 事件", "随机事件已重新开启", System);
+            } else {
+                addChatMessage("事件", "随机事件已在运行中", System);
+            }
+        } else if (sub === 'clear') {
+            stopAllActiveEvents();
+        } else {
+            addChatMessage("错误", "用法: /event happen <0~4> /event stop /event start /event clear", System);
+        }
+        return;
+    }
+
+    // ---------- /attribute ----------
+    if (main === '/attribute' && parts[1]) {
+        if (parts[1] === 'remove' && parts[2]) {
+            const uid = parts[2];
+            const idx = gameState.activeBuffs.findIndex(b => b.id === uid);
+            if (idx !== -1) {
+                gameState.activeBuffs.splice(idx, 1);
+                updateUI();
+                addChatMessage("属性", `已移除永久属性 UUID: ${uid}`, System);
+            } else {
+                addChatMessage("错误", "未找到该 UUID 的永久属性", System);
+            }
+            return;
+        }
+
+        // 添加永久属性
+        if ((parts[1] === 'click' || parts[1] === 'auto') &&
+            (parts[2] === 'add' || parts[2] === 'mul') &&
+            parts[3] && parts[4]) {
+            const target = parts[1];
+            const op = parts[2];
+            const numRaw = parseFloat(parts[3]);
+            if (isNaN(numRaw)) {
+                addChatMessage("错误", "数值无效", System);
+                return;
+            }
+            const uuid = parts[4];
+            if (gameState.activeBuffs.some(b => b.id === uuid)) {
+                addChatMessage("错误", "UUID 已存在，请使用不重复的 UUID", System);
+                return;
+            }
+            const isMultiplier = (op === 'mul');
+            const value = numRaw;
             gameState.activeBuffs.push({
                 id: uuid,
                 target: target,
@@ -278,15 +460,21 @@ function handleCommand(cmd){
                 isMultiplier: isMultiplier,
                 permanent: true
             });
-            addChatMessage("属性",`添加永久${target==='click'?'点击':'自动'}收益${isMultiplier?'倍率':''} ${value} (UUID: ${uuid})`,System);
+            addChatMessage("属性",
+                `添加永久${target === 'click' ? '点击' : '自动'}收益${isMultiplier ? '倍率' : ''} ${value} (UUID: ${uuid})`,
+                System
+            );
             updateUI();
+            return;
         }
-        else addChatMessage("错误","格式: /attribute click/auto add/mul <数值> <UUID>  或 /attribute remove <UUID>",System);
-    }
-    else addChatMessage("指令","未知命令 /help 查看",System);
-    updateUI();
-}
 
+        addChatMessage("错误", "格式: /attribute click/auto add/mul <数值> <UUID>  或 /attribute remove <UUID>", System);
+        return;
+    }
+
+    // ---------- 未知指令 ----------
+    addChatMessage("指令", "未知命令，输入 /help 查看所有指令", System);
+}
 function sendMsg(){ let txt=chatInput.value.trim(); if(!txt) return; if(txt.startsWith('/')) handleCommand(txt); else addChatMessage("👤 玩家", txt, Player); chatInput.value=''; }
 sendBtn.addEventListener('click',sendMsg); chatInput.addEventListener('keypress',(e)=>e.key==='Enter'&&sendMsg());
 
@@ -294,7 +482,7 @@ startEventLoop();
 window.onload=()=>{ calculateTotalBonus(); updateUI(); renderShop(); updateInventoryDisplay(); };
 upgradeBtn.addEventListener('click',upgradeClick); repBtn.addEventListener('click',upgradeReputation);
 
-// ========== [MOD] 移动端优化：大曲奇按钮触摸支持 ==========
+// ========== 移动端优化：大曲奇按钮触摸支持 ==========
 let cookieClickHandled = false;
 cookieBtn.addEventListener('touchstart', function(e) {
     e.preventDefault(); // 阻止双击缩放等默认行为
@@ -311,7 +499,7 @@ cookieBtn.addEventListener('click', function(e) {
 });
 // ===================================================
 
-// [MOD] 聊天输入框焦点时自动滚动到可视区域（避免键盘遮挡）
+// 聊天输入框焦点时自动滚动到可视区域（避免键盘遮挡）
 chatInput.addEventListener('focus', function() {
     setTimeout(() => {
         this.scrollIntoView({ behavior: 'smooth', block: 'center' });
