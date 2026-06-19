@@ -25,17 +25,22 @@ const event_Lucky = {a:'text-blue-800 bg-blue-50', b:'border-l-4 border-blue-400
 const event_Negative = {a:'text-red-800 bg-red-50', b:'border-l-4 border-red-400', c:''};
 const event_Active = {a:'text-gold-800 bg-gold-50', b:'border-l-4 border-gold-400', c:''};
 
-// ========== [MOD] 新增：数字单位格式化函数 ==========
 function formatNumber(num) {
     if (num === undefined || num === null || isNaN(num)) return '0';
-    num = Math.floor(num); // 确保整数
+    num = Math.floor(num);
     if (num < 0) return '-' + formatNumber(-num);
     if (num < 1000) return num.toString();
-    const units = ['', 'k', 'm', 'b', 't', 'p'];
-    const unitIndex = Math.floor(Math.log10(num) / 3);
-    const unit = units[Math.min(unitIndex, units.length - 1)];
+
+    const units = ['', 'k', 'm', 'b', 't', 'p', 'e', 'z', 'y'];
+    let unitIndex = Math.floor(Math.log10(num) / 3);
+
+    // 如果超出 y 级别，改用科学计数法
+    if (unitIndex >= units.length) {
+        return num.toExponential(3);
+    }
+
     const value = num / Math.pow(1000, unitIndex);
-    return value.toFixed(3) + unit;
+    return value.toFixed(3) + units[unitIndex];
 }
 // ===================================================
 
