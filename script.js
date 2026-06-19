@@ -497,6 +497,169 @@ cookieBtn.addEventListener('click', function(e) {
         gainCookies(gameState.clickValue + gameState.totalItemBonus, e);
     }
 });
+
+let chatVisible = false;
+let chatToggleBtn = null;
+const isMobile = ('ontouchstart' in window) || (window.innerWidth < 768);
+
+function initMobileUI() {
+    if (!isMobile) return;
+    // 隐藏原有聊天面板（右侧栏）
+    const chatPanel = document.querySelector('.lg\\:w-96'); // 需要精确选择器
+    if (chatPanel) chatPanel.style.display = 'none';
+    
+    // 创建浮动按钮
+    chatToggleBtn = document.createElement('button');
+    chatToggleBtn.id = 'chatToggleBtn';
+    chatToggleBtn.className = 'fixed bottom-6 right-6 z-50 bg-amber-600 text-white rounded-full w-14 h-14 shadow-lg flex items-center justify-center text-2xl';
+    chatToggleBtn.innerHTML = '💬';
+    chatToggleBtn.setAttribute('aria-label', '打开聊天');
+    document.body.appendChild(chatToggleBtn);
+    
+    // 创建聊天模态框（复用聊天面板内容）
+    const chatModal = document.createElement('div');
+    chatModal.id = 'chatModalMobile';
+    chatModal.className = 'fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center';
+    chatModal.innerHTML = `
+        <div class="bg-white rounded-2xl w-full max-w-lg h-[70vh] flex flex-col overflow-hidden">
+            <div class="bg-chat text-white p-3 flex items-center gap-2">
+                <i class="fa fa-comments"></i><span class="font-bold">闲聊广场 · 事件播报</span>
+                <button id="closeChatModal" class="ml-auto text-white text-xl">&times;</button>
+            </div>
+            <div id="chatMessagesMobile" class="flex-1 overflow-y-auto p-3 space-y-2 text-sm bg-gray-50 scrollable"></div>
+            <div class="p-2 border-t flex gap-2 bg-white">
+                <input type="text" id="chatInputMobile" placeholder="输入消息..." class="flex-1 border rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300">
+                <button id="sendChatMobile" class="bg-amber-600 text-white px-4 rounded-full hover:bg-amber-700"><i class="fa fa-send"></i></button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(chatModal);
+    
+    // 将原聊天消息迁移到移动版容器
+    const originalMsgs = document.getElementById('chatMessages');
+    const mobileMsgs = document.getElementById('chatMessagesMobile');
+    if (originalMsgs && mobileMsgs) {
+        mobileMsgs.innerHTML = originalMsgs.innerHTML;
+        // 同步后续消息
+        const origAppend = originalMsgs.appendChild;
+        originalMsgs.appendChild = function(node) {
+            mobileMsgs.appendChild(node.cloneNode(true));
+            origAppend.call(this, node);
+        };
+    }
+    
+    // 绑定事件
+    document.getElementById('chatToggleBtn').addEventListener('click', () => {
+        document.getElementById('chatModalMobile').classList.remove('hidden');
+        chatVisible = true;
+        // 移除红点提示
+        chatToggleBtn.classList.remove('has-new-msg');
+        // 同步最新消息
+        syncChatMessages();
+    });
+    document.getElementById('closeChatModal').addEventListener('click', () => {
+        document.getElementById('chatModalMobile').classList.add('hidden');
+        chatVisible = false;
+    });
+    document.getElementById('sendChatMobile').addEventListener('click', sendMsgMobile);
+    document.getElementById('chatInputMobile').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMsgMobile();
+    });
+    
+    // 重写发送函数
+    function sendMsgMobile() {
+        const input = document.getElementById('chatInputMobile');
+        const txt = input.value.trim();
+        if (!txt) return;
+        if (txt.startsWith('/')) handleCommand(txt);
+        else addChatMessage("👤 玩家", txt, Player);
+        input.value = '';
+        // 同步到原容器（若存在）
+        syncChatMessages();
+    }
+    // 替换原有sendMsg（可选）
+    window.sendMsgMobile = sendMsgMobile;
+}
+
+function syncChatMessages() {
+    const orig = document.getElementById('chatMessages');
+    const mobile = document.getElementById('chatMessagesMobile');
+    if (orig && mobile) {
+        mobile.innerHTML = orig.innerHTML;
+        mobile.scrollTop = mobile.scrollHeight;
+    }
+}
+
+// 重写 addChatMessage 以触发移动端通知
+const originalAddChat = addChatMessage;
+addChatMessage = function(sender, text, className) {
+    originalAddChat.call(this, sender, text, className);
+    // 移动端通知
+    if (isMobile && !chatVisible && chatToggleBtn) {
+        chatToggleBtn.classList.add('has-new-msg');
+        // 简单震动提示（如果设备支持）
+        if (navigator.vibrate) navigator.vibrate(50);
+    }
+    // 同步移动端容器
+    syncChatMessages();
+};
+
+// Tooltip 移动端点击关闭
+// 修改 bindTooltip：在触摸设备上改用 click 切换
+const originalBind = bindTooltip;
+bindTooltip = function(el, title, desc, bonus, priceInfo, stackInfo) {
+    const tooltipContent = `<strong>${title}</strong><br>${desc}<br>✨ 点击收益 +${bonus}<br>💰 ${priceInfo}<br>📦 ${stackInfo}`;
+    if (isMobile) {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            // 如果已有tooltip且是当前元素触发的，则关闭，否则显示
+            if (activeTooltip && activeTooltip._triggerEl === el) {
+                hideGlobalTooltip();
+            } else {
+                showGlobalTooltip(tooltipContent, e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY);
+                if (activeTooltip) activeTooltip._triggerEl = el;
+            }
+        });
+        // 点击其他区域关闭
+        document.addEventListener('click', function(e) {
+            if (activeTooltip && !activeTooltip.contains(e.target) && e.target !== el) {
+                hideGlobalTooltip();
+            }
+        });
+        // 触屏点击其他区域
+        document.addEventListener('touchstart', function(e) {
+            if (activeTooltip && !activeTooltip.contains(e.target) && e.target !== el) {
+                hideGlobalTooltip();
+            }
+        });
+    } else {
+        // 桌面保持 hover
+        el.addEventListener('mouseenter', (e) => {
+            showGlobalTooltip(tooltipContent, e.clientX, e.clientY);
+        });
+        el.addEventListener('mousemove', (e) => {
+            if (activeTooltip) {
+                let rect = activeTooltip.getBoundingClientRect();
+                let left = e.clientX + 15;
+                let top = e.clientY - rect.height - 8;
+                if (top < 10) top = e.clientY + 20;
+                if (left + rect.width > window.innerWidth - 10) left = window.innerWidth - rect.width - 10;
+                activeTooltip.style.left = left + 'px';
+                activeTooltip.style.top = top + 'px';
+            }
+        });
+        el.addEventListener('mouseleave', hideGlobalTooltip);
+    }
+};
+
+// 在 window.onload 中调用 initMobileUI()
+window.onload = function() {
+    calculateTotalBonus();
+    updateUI();
+    renderShop();
+    updateInventoryDisplay();
+    initMobileUI();
+};
 // ===================================================
 
 // 聊天输入框焦点时自动滚动到可视区域（避免键盘遮挡）
