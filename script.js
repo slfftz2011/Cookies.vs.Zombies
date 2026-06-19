@@ -201,18 +201,35 @@ function forceEventById(id){ if(id>=0 && id<eventList.length) eventList[id].effe
 setInterval(()=>{ let now=Date.now(); let diff=(now-gameState.lastUpdate)/1000; if(diff>=1){ let finalAuto=applyBuffValue(gameState.autoValue,'auto'); let add=Math.floor(diff*finalAuto); if(add>0){ gameState.cookies+=add; updateUI(); } gameState.lastUpdate=now; } },1000);
 
 // ---------- 作弊指令 ----------
-function parseNumberWithSuffix(str, floorResult=true){ 
-    let match=str.match(/^([\d.]+)([kKmMgGtTpP]?)$/); 
-    if(!match) return NaN; 
-    let val=parseFloat(match[1]); 
-    let suf=match[2].toLowerCase(); 
-    if(suf==='k') val*=1e3; 
-    else if(suf==='m') val*=1e6; 
-    else if(suf==='b') val*=1e9; 
-    else if(suf==='t') val*=1e12; 
-    else if(suf==='p') val*=1e15; 
-    if(floorResult) val = Math.floor(val);
-    return val; 
+function parseNumberWithSuffix(str, floorResult = true) {
+    // 去除首尾空格
+    str = str.trim();
+    if (str === '') return NaN;
+
+    // 1. 尝试直接解析为数字（包括科学计数法）
+    let num = Number(str);
+    if (!isNaN(num)) {
+        return floorResult ? Math.floor(num) : num;
+    }
+
+    // 2. 尝试匹配 数字+单位 后缀 (k,m,b,t,p,e,z,y)
+    const match = str.match(/^([\d.]+)([kKmMbBtTpPeEzZyY])$/);
+    if (match) {
+        const val = parseFloat(match[1]);
+        const unit = match[2].toLowerCase();
+        const unitMap = {
+            'k': 1e3, 'm': 1e6, 'b': 1e9,
+            't': 1e12, 'p': 1e15,
+            'e': 1e18, 'z': 1e21, 'y': 1e24
+        };
+        if (unitMap.hasOwnProperty(unit)) {
+            const result = val * unitMap[unit];
+            return floorResult ? Math.floor(result) : result;
+        }
+    }
+
+    // 3. 如果都不匹配，返回 NaN
+    return NaN;
 }
 function handleCommand(cmd){
     if(!isDev){ addChatMessage("🔒系统","作弊模式未开启 (isDev=false)",System); return; }
