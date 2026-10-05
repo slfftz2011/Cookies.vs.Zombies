@@ -1,0 +1,9 @@
+{
+    "appId": "com.slfftz.cvz",
+    "appName": "Cookies vs Zombies",
+    "webDir": "www",
+    "bundledWebRuntime": false,
+    "server": {
+      "androidScheme": "https"
+    }
+}
