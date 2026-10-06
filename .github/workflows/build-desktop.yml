@@ -1,4 +1,6 @@
 name: Build Desktop App
+permissions:
+  contents: write
 
 on:
   push:
