@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build with Pake
-        uses: tw93/Pake@V3
+        uses: tw93/Pake@main
         with:
           url: "https://slfftz2011.github.io/Cookies.vs.Zombies/"
           name: "CookiesVsZombies"
