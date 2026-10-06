@@ -687,6 +687,7 @@ App.addEventListener('pause', () => {
     saveGame();
 })
 
+
 window.onload = async() => {
     await loadGame();
     calculateTotalBonus();
