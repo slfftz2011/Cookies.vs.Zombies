@@ -653,8 +653,15 @@ bindTooltip = function(el, title, desc, bonus, priceInfo, stackInfo) {
 };
 
 // 持久化存档数据
-import { Preferences } from '@capacitor/preferences';
-import { App } from '@capacitor/app';
+const CapacitorPlugins = window.Capacitor?.Plugins || {};
+const Preferences = CapacitorPlugins.Preferences || {
+  // Web 端兜底逻辑
+  get: async ({ key }) => ({ value: localStorage.getItem(key) }),
+  set: async ({ key, value }) => localStorage.setItem(key, value),
+  remove: async ({ key }) => localStorage.removeItem(key),
+};
+const App = CapacitorPlugins.App || { addListener: () => {} };
+
 const SAVE_KEY = 'cvz_save';
 
 async function loadGame() {
