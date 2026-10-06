@@ -652,13 +652,44 @@ bindTooltip = function(el, title, desc, bonus, priceInfo, stackInfo) {
     }
 };
 
-// 在 window.onload 中调用 initMobileUI()
-window.onload = function() {
+// 持久化存档数据
+import { Preferences } from '@capacitor/preferences';
+import { App } from '@capacitor/app';
+const SAVE_KEY = 'cvz_save';
+
+async function loadGame() {
+    const { value } = await Preferences.get({ key: SAVE_KEY});
+    if(value) {
+        try {
+            const data = JSON.parse(value);
+            Object.assign(gameState, data);
+        } catch (e) {
+            console.warn('存档读取失败', e);
+        }
+    }
+}
+
+async function saveGame() {
+    await Preferences.set({
+        key: SAVE_KEY,
+        value: JSON.stringify(gameState)
+    });
+}
+
+App.addEventListener('pause', () => {
+    saveGame();
+})
+
+window.onload = async() => {
+    await loadGame();
     calculateTotalBonus();
     updateUI();
     renderShop();
     updateInventoryDisplay();
     initMobileUI();
+
+    setInterval(saveGame, 15000);
+    window.addEventListener('beforeunload', saveGame);
 };
 // ===================================================
 
