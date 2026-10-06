@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - 'andriod-v*'
   workflow_dispatch:
 
 jobs:
