@@ -15,14 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build with Pake
-        uses: tw93/Pake@main
-        with:
-          url: "https://slfftz2011.github.io/Cookies.vs.Zombies/"
-          name: "CookiesVsZombies"
-          width: 1280
-          height: 800
-          # icon: "https://slfftz2011.github.io/Cookies.vs.Zombies/icon.png"
+      - name: Install Pake CLI
+        run: npm install -g pake-cli
+
+      - name: Build Desktop App
+        run: pake "https://slfftz2011.github.io/Cookies.vs.Zombies/" --name "CookiesVsZombies" --width 1280 --height 800
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
