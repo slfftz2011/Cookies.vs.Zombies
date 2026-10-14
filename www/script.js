@@ -498,7 +498,89 @@ cookieBtn.addEventListener('click', function(e) {
     }
 });
 
+// ========== 移动端：右侧面板 → 悬浮球 + Toast ==========
+const mqCoarse = window.matchMedia('(hover: none) and (pointer: coarse)');
+const uaMobileRe = /Android|iPhone|iPad|iPod|Mobile|HarmonyOS/i;
+const isCapacitorNative = () =>
+    !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const isMobileDevice = () =>
+    isCapacitorNative() || mqCoarse.matches || uaMobileRe.test(navigator.userAgent);
 
+let chatFabEl, chatFabBadgeEl, mobileToastBoxEl, chatPanelEl;
+let mobileChatOpen = false;
+let mobileUnread = 0;
+let mobileSelfSendGuard = 0; // 自己发消息时抑制 Toast
+
+function showMobileChatToast(text) {
+    if (!mobileToastBoxEl) return;
+    const el = document.createElement('div');
+    el.className = 'mobile-toast';
+    el.textContent = text.length > 60 ? text.slice(0, 60) + '…' : text;
+    mobileToastBoxEl.appendChild(el);
+    while (mobileToastBoxEl.children.length > 3) mobileToastBoxEl.firstChild.remove();
+    setTimeout(() => {
+        el.classList.add('out');
+        setTimeout(() => el.remove(), 260);
+    }, 2400);
+}
+
+function setupMobileChat() {
+    if (chatFabEl) return;
+    chatFabEl        = document.getElementById('chatFab');
+    chatFabBadgeEl   = document.getElementById('chatFabBadge');
+    mobileToastBoxEl = document.getElementById('mobileToastBox');
+    chatPanelEl      = document.getElementById('chatPanel');
+    if (!chatFabEl || !chatPanelEl) return;
+
+    chatFabEl.addEventListener('click', () => {
+        mobileChatOpen = !mobileChatOpen;
+        chatPanelEl.classList.toggle('open', mobileChatOpen);
+        if (mobileChatOpen) {
+            mobileUnread = 0;
+            chatFabBadgeEl.hidden = true;
+            chatFabBadgeEl.textContent = '0';
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+    });
+
+    // 自己发消息不弹 Toast
+    sendBtn.addEventListener('click', () => { mobileSelfSendGuard = Date.now() + 400; }, true);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') mobileSelfSendGuard = Date.now() + 400;
+    }, true);
+
+    // 监听聊天区新消息（不关心来源：事件/AI/商店系统都走这里）
+    new MutationObserver((muts) => {
+        if (Date.now() < mobileSelfSendGuard) return;
+        if (mobileChatOpen) return; // 面板已开，无需打扰
+        muts.forEach(m => m.addedNodes.forEach(n => {
+            if (n.nodeType !== 1) return;
+            const txt = (n.textContent || '').trim();
+            if (txt) showMobileChatToast(txt);
+        }));
+        mobileUnread++;
+        chatFabBadgeEl.textContent = mobileUnread > 99 ? '99+' : mobileUnread;
+        chatFabBadgeEl.hidden = false;
+    }).observe(chatDiv, { childList: true });
+}
+
+function applyMobileMode() {
+    const mobile = isMobileDevice();
+    document.body.classList.toggle('is-mobile', mobile);
+    if (mobile) {
+        setupMobileChat();
+    } else {
+        if (chatPanelEl) chatPanelEl.classList.remove('open');
+        if (mobileToastBoxEl) mobileToastBoxEl.replaceChildren();
+        if (chatFabBadgeEl) chatFabBadgeEl.hidden = true;
+        mobileChatOpen = false;
+        mobileUnread = 0;
+    }
+}
+
+applyMobileMode();
+(mqCoarse.addEventListener || mqCoarse.addListener).call(mqCoarse, 'change', applyMobileMode);
+window.addEventListener('orientationchange', () => setTimeout(applyMobileMode, 200));
 
 // Tooltip 移动端点击关闭
 // 修改 bindTooltip：在触摸设备上改用 click 切换
