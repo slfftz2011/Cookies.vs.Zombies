@@ -587,7 +587,7 @@ window.addEventListener('orientationchange', () => setTimeout(applyMobileMode, 2
 const originalBind = bindTooltip;
 bindTooltip = function(el, title, desc, bonus, priceInfo, stackInfo) {
     const tooltipContent = `<strong>${title}</strong><br>${desc}<br>✨ 点击收益 +${bonus}<br>💰 ${priceInfo}<br>📦 ${stackInfo}`;
-    if (isMobile) {
+    if (isMobileDevice) {
         el.addEventListener('click', function(e) {
             e.stopPropagation();
             // 如果已有tooltip且是当前元素触发的，则关闭，否则显示
