@@ -672,7 +672,6 @@ window.onload = async() => {
     updateUI();
     renderShop();
     updateInventoryDisplay();
-    initMobileUI();
 
     setInterval(saveGame, 15000);
     window.addEventListener('beforeunload', saveGame);
