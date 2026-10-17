@@ -30,7 +30,7 @@ jobs:
 
       # 3. 安装 pake-cli，并锁定在一个已知可用的旧版本
       - name: Install Pake CLI
-        run: npm install -g pake-cli@3.11.10 # 锁定版本，避免升级到要求 Rust 1.85 的新版
+        run: npm install -g pake-cli@2 # 锁定版本，避免升级到要求 Rust 1.85 的新版
       
       - name: Patch Cargo.lock for Rust 1.77 Compatibility
         run: |
