@@ -133,7 +133,16 @@ function updateUI(){
     let repCost = calcRepCost(gameState.reputationLevel);
     if(gameState.reputationLevel<30){ repCostSpan.innerText = ` costs: ${formatNumber(repCost)} 曲奇`; repBtn.disabled = gameState.cookies<repCost; }
     else { repCostSpan.innerText = ` 需要新货币`; repBtn.disabled=true; }
-    if(gameState.upgradeLevel>=10 && (!gameState.shopUnlocked)){ gameState.shopUnlocked=true; gameState.inventoryUnlocked=true; featureDiv.style.display='grid'; unlockHintDiv.style.display='none'; renderShop(); updateInventoryDisplay(); showToast("✨ 10级解锁商店&背包！"); }
+    if (gameState.upgradeLevel >= 10) {
+        if (!gameState.shopUnlocked) {
+            gameState.shopUnlocked = true;
+            gameState.inventoryUnlocked = true;
+            showToast("✨ 10级解锁商店&背包！");
+        }
+    }
+    // 每次刷新都根据状态同步按钮显隐
+    featureDiv.style.display = gameState.shopUnlocked ? 'grid' : 'none';
+    unlockHintDiv.style.display = gameState.shopUnlocked ? 'none' : 'block';
     if(gameState.inventoryUnlocked) invSlotsSpan.innerText = `${gameState.inventorySlots}/${gameState.maxInventorySlots}`;
 }
 function calcUpgradeCost(level){ return Math.floor(gameState.baseUpgradeCost * Math.pow(gameState.upgradeCostMultiplier, level)); }
@@ -587,7 +596,7 @@ window.addEventListener('orientationchange', () => setTimeout(applyMobileMode, 2
 const originalBind = bindTooltip;
 bindTooltip = function(el, title, desc, bonus, priceInfo, stackInfo) {
     const tooltipContent = `<strong>${title}</strong><br>${desc}<br>✨ 点击收益 +${bonus}<br>💰 ${priceInfo}<br>📦 ${stackInfo}`;
-    if (isMobileDevice) {
+    if (isMobileDevice()) {
         el.addEventListener('click', function(e) {
             e.stopPropagation();
             // 如果已有tooltip且是当前元素触发的，则关闭，否则显示
@@ -638,7 +647,7 @@ const Preferences = CapacitorPlugins.Preferences || {
   set: async ({ key, value }) => localStorage.setItem(key, value),
   remove: async ({ key }) => localStorage.removeItem(key),
 };
-const App = CapacitorPlugins.App || { addListener: () => {} };
+const App = window.Capacitor?.Plugins?.App || null;
 
 const SAVE_KEY = 'cvz_save';
 
@@ -661,32 +670,60 @@ async function saveGame() {
     });
 }
 
-App.addEventListener('pause', () => {
-    saveGame();
-})
+if (App && typeof App.addListener === 'function') {
+    App.addListener('pause', () => saveGame());
+}
 
-
-window.onload = async() => {
+// ---------- 统一初始化逻辑 ----------
+window.addEventListener('load', async () => {
+    // 加载存档并刷新 UI
     await loadGame();
     calculateTotalBonus();
     updateUI();
     renderShop();
     updateInventoryDisplay();
 
+    // 绑定所有模态框和按钮事件
+    const shopModal = document.getElementById('shopModal');
+    const invModal = document.getElementById('inventoryModal');
+    const shopBtn = document.getElementById('shopButton');
+    const invBtn = document.getElementById('inventoryButton');
+    const closeShop = document.getElementById('closeShopButton');
+    const closeInv = document.getElementById('closeInventoryButton');
+
+    // 商店打开
+    if (shopBtn && shopModal) {
+        shopBtn.addEventListener('click', () => {
+            if (!gameState.shopUnlocked) return showToast("商店尚未解锁", true);
+            renderShop();
+            shopModal.classList.remove('hidden');
+        });
+    }
+
+    // 背包打开
+    if (invBtn && invModal) {
+        invBtn.addEventListener('click', () => {
+            if (!gameState.inventoryUnlocked) return showToast("背包尚未解锁", true);
+            updateInventoryDisplay();
+            invModal.classList.remove('hidden');
+        });
+    }
+
+    // 关闭按钮
+    if (closeShop && shopModal) closeShop.addEventListener('click', () => shopModal.classList.add('hidden'));
+    if (closeInv && invModal) closeInv.addEventListener('click', () => invModal.classList.add('hidden'));
+
+    // 点击遮罩关闭
+    [shopModal, invModal].forEach(modal => {
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.add('hidden');
+            });
+        }
+    });
+
+    // 启动自动存档和定时器
     setInterval(saveGame, 15000);
     window.addEventListener('beforeunload', saveGame);
-};
-// ===================================================
-
-// 聊天输入框焦点时自动滚动到可视区域（避免键盘遮挡）
-chatInput.addEventListener('focus', function() {
-    setTimeout(() => {
-        this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
+    startEventLoop();
 });
-
-document.getElementById('shopButton')?.addEventListener('click',()=>{ if(gameState.shopUnlocked){ renderShop(); shopModal.classList.remove('hidden'); } });
-document.getElementById('inventoryButton')?.addEventListener('click',()=>{ if(gameState.inventoryUnlocked){ updateInventoryDisplay(); invModal.classList.remove('hidden'); } });
-closeShop.onclick=()=>shopModal.classList.add('hidden'); closeInv.onclick=()=>invModal.classList.add('hidden');
-window.onclick=(e)=>{ if(e.target===shopModal) shopModal.classList.add('hidden'); if(e.target===invModal) invModal.classList.add('hidden'); };
-updateUI();
