@@ -26,7 +26,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # 使用较旧的 LTS 版本以匹配旧版 Pake
+          node-version: '20' # 使用较旧的 LTS 版本以匹配旧版 Pake
 
       # 3. 安装 pake-cli，并锁定在一个已知可用的旧版本
       - name: Install Pake CLI
