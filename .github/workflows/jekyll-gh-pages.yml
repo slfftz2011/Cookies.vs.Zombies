@@ -22,8 +22,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      www: ${{ steps.filter.outputs.www }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            www:
+              - 'www/**'
   # Build job
   build:
+    needs: changes
+    if: needs.changes.outputs.www == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -40,6 +54,8 @@ jobs:
 
   # Deployment job
   deploy:
+    needs: [changes, build]
+    if: needs.changes.outputs.www == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

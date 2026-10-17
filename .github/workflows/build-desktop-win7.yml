@@ -31,6 +31,17 @@ jobs:
       # 3. 安装 pake-cli，并锁定在一个已知可用的旧版本
       - name: Install Pake CLI
         run: npm install -g pake-cli@3.11.10 # 锁定版本，避免升级到要求 Rust 1.85 的新版
+      
+      - name: Patch Cargo.lock for Rust 1.77 Compatibility
+        run: |
+          $lockPath = "C:\npm\prefix\node_modules\pake-cli\src-tauri\Cargo.lock"
+          if (Test-Path $lockPath) {
+            (Get-Content $lockPath) -replace '^version = 4$', 'version = 3' | Set-Content $lockPath
+            Write-Host "✅ 已将 Cargo.lock 版本降级为 3，以兼容 Rust 1.77.2"
+          } else {
+            Write-Error "未找到 Cargo.lock 文件：$lockPath"
+            exit 1
+          }
 
       # 4. 执行打包，并注入关键的 Win7 兼容配置
       - name: Build Desktop App
