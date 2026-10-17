@@ -39,7 +39,7 @@
                 <div class="bg-white/80 p-3 rounded-xl shadow"><i class="fa fa-hand-pointer-o text-accent mr-1"></i>点击收益 <span id="clickValueDisplay" class="font-bold block text-cookie-darker text-xl">+5</span></div>
                 <div class="bg-white/80 p-3 rounded-xl shadow"><i class="fa fa-clock-o text-accent mr-1"></i>自动收益 <span id="autoValueDisplay" class="font-bold block text-cookie-darker text-xl">+1/秒</span></div>
                 <div class="bg-white/80 p-3 rounded-xl shadow"><i class="fa fa-level-up text-accent mr-1"></i>升级等级 <span id="upgradeLevelDisplay" class="font-bold block">等级 0</span></div>
-                <div class="bg-white/80 p-3 rounded-xl shadow"><i class="fa fa-star text-reputation mr-1"></i>声望等级 <span id="reputationLevelDisplay" class="font-bold text-reputation">声望 0</span></div>
+                <div class="bg-white/80 p-3 rounded-xl shadow"><i class="fa fa-star text-reputation mr-1"></i>声望等级 <span id="reputationLevelDisplay" class="font-bold block text-reputation">声望 0</span></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
@@ -82,6 +82,17 @@
     <div id="mobileToastBox"></div>
 
     <script src="capacitor.js"></script>
-    <script src="./script.js"></script>
+     <!-- 游戏核心 -->
+     <script src="./data.js"></script>
+     <script src="./utils.js"></script>
+     <script src="./game.js"></script>
+     <script src="./events.js"></script>
+     
+     <!-- 开发者/作弊模块 -->
+     <script src="./dev.js"></script>
+     <script src="./commands.js"></script>
+     
+     <!-- 启动 -->
+     <script src="./main.js"></script>
 </body>
 </html>
