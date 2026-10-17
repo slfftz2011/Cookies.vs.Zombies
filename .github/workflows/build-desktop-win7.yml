@@ -44,23 +44,6 @@ jobs:
         run: |
           pake "https://slfftz2011.github.io/Cookies.vs.Zombies/" --name "CookiesVsZombies" --width 1280 --height 800
           
-      - name: Patch Tauri Config for Win7
-        run: |
-          $configPath = "src-tauri/tauri.conf.json"
-          if (Test-Path $configPath) {
-            $config = Get-Content $configPath | ConvertFrom-Json
-            # 设置 WebView2 安装模式为 EmbedBootstrapper
-            $config.tauri.bundle.windows.webviewInstallMode = @{
-              type = "embedBootstrapper"
-              silent = $true
-            }
-            $config | ConvertTo-Json -Depth 100 | Set-Content $configPath
-            Write-Host "✅ 已为 Win7 设置 webviewInstallMode: embedBootstrapper"
-          } else {
-            Write-Error "未找到 tauri.conf.json，无法应用 Win7 补丁"
-            exit 1
-          }
-
       - name: Rebuild with Win7 Patch
         run: pake "https://slfftz2011.github.io/Cookies.vs.Zombies/" --name "CookiesVsZombies" --width 1280 --height 800
 
