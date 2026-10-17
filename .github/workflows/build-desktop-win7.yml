@@ -1,0 +1,75 @@
+name: Build Desktop App (Win7 Compatible)
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'desktop-v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. 强制使用支持 Win7 的 Rust 版本 (1.77.2)
+      - name: Install Rust 1.77.2
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.77.2
+          components: rustfmt, clippy
+
+      # 2. 安装 Node.js (Pake CLI 需要)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # 使用较旧的 LTS 版本以匹配旧版 Pake
+
+      # 3. 安装 pake-cli，并锁定在一个已知可用的旧版本
+      - name: Install Pake CLI
+        run: npm install -g pake-cli@3.11.10 # 锁定版本，避免升级到要求 Rust 1.85 的新版
+
+      # 4. 执行打包，并注入关键的 Win7 兼容配置
+      - name: Build Desktop App
+        run: |
+          pake "https://slfftz2011.github.io/Cookies.vs.Zombies/" --name "CookiesVsZombies" --width 1280 --height 800
+          
+      # 5. 手动修改生成的 tauri.conf.json，启用 EmbedBootstrapper
+      - name: Patch Tauri Config for Win7
+        run: |
+          $configPath = "src-tauri/tauri.conf.json"
+          if (Test-Path $configPath) {
+            $config = Get-Content $configPath | ConvertFrom-Json
+            # 设置 WebView2 安装模式为 EmbedBootstrapper
+            $config.tauri.bundle.windows.webviewInstallMode = @{
+              type = "embedBootstrapper"
+              silent = $true
+            }
+            $config | ConvertTo-Json -Depth 100 | Set-Content $configPath
+            Write-Host "✅ 已为 Win7 设置 webviewInstallMode: embedBootstrapper"
+          } else {
+            Write-Error "未找到 tauri.conf.json，无法应用 Win7 补丁"
+            exit 1
+          }
+
+      # 6. 重新执行构建以应用补丁 (或者让 Pake 直接使用修改后的配置)
+      - name: Rebuild with Win7 Patch
+        run: pake "https://slfftz2011.github.io/Cookies.vs.Zombies/" --name "CookiesVsZombies" --width 1280 --height 800
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-app
+          path: CookiesVsZombies.msi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: CookiesVsZombies.msi
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
