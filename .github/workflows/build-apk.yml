@@ -60,7 +60,7 @@ jobs:
           sed -i '/android {/a\
               signingConfigs {\
                   release {\
-                      storeFile file("../my-release.jks")\
+                      storeFile file("my-release.jks")\
                       storePassword System.getenv("KEYSTORE_PASSWORD")\
                       keyAlias System.getenv("KEY_ALIAS")\
                       keyPassword System.getenv("KEY_PASSWORD")\
@@ -73,7 +73,7 @@ jobs:
                   signingConfig signingConfigs.release\
               }' android/app/build.gradle
 
-      - name: Build Signed APK
+            - name: Build Signed APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -81,18 +81,41 @@ jobs:
         run: |
           cd android
           ./gradlew assembleDebug
+          cd ..
+
+      - name: Rename APK
+        id: rename_apk
+        run: |
+          # 1. 获取版本号
+          TAG_NAME="${{ github.ref_name }}"
+          # 如果是打 tag 触发，提取 tag 里的数字（兼容 v1.1.0 或 andriod-v1.1.0 格式）
+          if [[ "$TAG_NAME" == v* ]] || [[ "$TAG_NAME" == andriod-v* ]]; then
+            VERSION=$(echo "$TAG_NAME" | sed -E 's/^(andriod-)?v//')
+          else
+            # 如果是手动触发，去 package.json 里找 version
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          
+          # 2. 拼接新文件名
+          APP_NAME="Cookies vs Zombies ${VERSION}.apk"
+          
+          # 3. 重命名文件（从 android/app/build/... 移动到根目录）
+          mv android/app/build/outputs/apk/debug/app-debug.apk "${APP_NAME}"
+          
+          # 4. 将文件名存入环境变量，给后面的步骤使用
+          echo "APK_FILE=${APP_NAME}" >> $GITHUB_ENV
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: cvz-app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.APK_FILE }} # 使用重命名后的路径
       
       - name: Create Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: android/app/build/outputs/apk/debug/app-debug.apk
+          files: ${{ env.APK_FILE }} # 使用重命名后的路径
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
