@@ -21,7 +21,7 @@ jobs:
       - name: Build Desktop App
         run: pake "https://slfftz2011.github.io/Cookies.vs.Zombies/" --name "CookiesVsZombies" --width 1280 --height 800
 
-       - name: Rename MSI
+      - name: Rename MSI
         shell: bash
         run: |
           TAG_NAME="${{ github.ref_name }}"
