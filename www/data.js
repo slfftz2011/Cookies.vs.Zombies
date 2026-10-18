@@ -32,14 +32,32 @@ const gameState = new Proxy(_internalState, {
 
 // 【唯一合法接口】：加减数值（必须指定合法来源）
 function modifyState(key, amount, source) {
-    const validSources = ['click', 'auto', 'shop', 'event', 'command', 'decompose', 'upgrade'];
+    // 1. 基础来源白名单
+    const validSources = ['click', 'auto', 'shop', 'event', 'decompose', 'upgrade', 'command'];
     if (!validSources.includes(source)) {
-        console.warn(`🚨 异常数据来源：${source}`);
+        console.warn(`🚨 拦截到未知来源：${source}`);
         _internalState.cheatFlag = true;
         return false;
     }
-    
-    // 允许通过接口修改被 Proxy 拦截的数值
+
+    // 2. 核心防御：来源与属性的强绑定规则（解决你的问题）
+    const allowedKeysForSource = {
+        'click':     ['cookies'],                          // 真实点击只能加曲奇
+        'auto':      ['cookies'],                          // 自动收益只能加曲奇
+        'shop':      ['cookies'],                          // 购买扣费只能扣曲奇
+        'event':     ['cookies'],                          // 随机事件只能改曲奇
+        'decompose': ['cookies'],                          // 分解只能加曲奇
+        'upgrade':   ['upgradeLevel', 'clickValue', 'reputationLevel', 'autoValue'], // 升级才能改等级和倍率
+        'command':   ['cookies', 'upgradeLevel', 'clickValue', 'reputationLevel', 'autoValue'] // 作弊指令（仅限合法指令调用）
+    };
+
+    if (!allowedKeysForSource[source] || !allowedKeysForSource[source].includes(key)) {
+        console.warn(`🚨 拦截到异常篡改：来源【${source}】试图修改属性【${key}】！`);
+        _internalState.cheatFlag = true;
+        return false; // 拒绝执行
+    }
+
+    // 3. 执行修改
     if (sensitiveKeys.includes(key)) {
         _internalState[key] += amount;
         return true;
