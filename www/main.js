@@ -128,10 +128,36 @@ const SAVE_KEY = 'cvz_save';
 
 async function loadGame() {
     const { value } = await Preferences.get({ key: SAVE_KEY});
-    if(value) { try { Object.assign(gameState, JSON.parse(value)); } catch (e) { console.warn('存档失败', e); } }
+    if(value) { 
+        try { 
+            const data = JSON.parse(value); 
+            
+            // 由于 gameState 被 Proxy 拦截，直接 Object.assign 会报错并被标记作弊。
+            // 必须通过我们的合法接口 (setState) 或安全属性逐一恢复
+            for (let key in data) {
+                // 核心数值必须走接口，来源标记为 'system'
+                if (['cookies', 'clickValue', 'autoValue', 'upgradeLevel', 'reputationLevel', 'totalItemBonus'].includes(key)) {
+                    setState(key, data[key], 'system');
+                } 
+                // 数组和对象直接覆盖
+                else if (key === 'inventory' || key === 'activeBuffs') {
+                    setState(key, data[key], 'system');
+                }
+                // 其他非敏感属性允许直接赋值 (如 shopUnlocked, cheatFlag 等)
+                else {
+                    gameState[key] = data[key];
+                }
+            }
+        } catch (e) { 
+            console.warn('存档读取失败', e); 
+        }
+    }
 }
-async function saveGame() { await Preferences.set({ key: SAVE_KEY, value: JSON.stringify(gameState) }); }
-if (App && typeof App.addListener === 'function') App.addListener('pause', () => saveGame());
+
+async function saveGame() { 
+    // 读取时会自动触发 Proxy 的 get，拿到的是真实数据，这里不需要改
+    await Preferences.set({ key: SAVE_KEY, value: JSON.stringify(gameState) }); 
+}
 
 // 6. 统一初始化与 UI 绑定
 window.addEventListener('load', async () => {
