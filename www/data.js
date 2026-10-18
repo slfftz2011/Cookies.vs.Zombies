@@ -1,6 +1,6 @@
 // [模块 1] 基础状态与常量数据
 
-let gameState = {
+const _internalState = {
     cookies: 500,
     clickValue: 5, autoValue: 1, lastUpdate: Date.now(),
     upgradeLevel: 0, baseUpgradeCost: 8, upgradeCostMultiplier: 1.4, upgradeValueIncrease: 2,
@@ -8,8 +8,65 @@ let gameState = {
     shopUnlocked: false, shopRowsUnlocked: 1, itemsPerRow: 8,
     inventoryUnlocked: false, inventorySlots: 4, maxInventorySlots: 104, slotUnlockLevel: 10, slotUnlockInterval: 5,
     inventory: [], totalItemBonus: 0,
-    activeBuffs: []
+    activeBuffs: [],
+    cheatFlag: false 
 };
+
+// 【核心防御】：拦截所有敏感数值的直接修改
+const sensitiveKeys = ['cookies', 'clickValue', 'autoValue', 'upgradeLevel', 'reputationLevel', 'totalItemBonus'];
+
+const gameState = new Proxy(_internalState, {
+    get(target, prop) {
+        return target[prop]; 
+    },
+    set(target, prop, value) {
+        if (sensitiveKeys.includes(prop)) {
+            console.warn(`🚨 检测到非法直接篡改核心数据: ${prop} = ${value}`);
+            target.cheatFlag = true;
+            return false; // 拒绝赋值
+        }
+        target[prop] = value;
+        return true;
+    }
+});
+
+// 【唯一合法接口】：加减数值（必须指定合法来源）
+function modifyState(key, amount, source) {
+    const validSources = ['click', 'auto', 'shop', 'event', 'command', 'decompose', 'upgrade'];
+    if (!validSources.includes(source)) {
+        console.warn(`🚨 异常数据来源：${source}`);
+        _internalState.cheatFlag = true;
+        return false;
+    }
+    
+    // 允许通过接口修改被 Proxy 拦截的数值
+    if (sensitiveKeys.includes(key)) {
+        _internalState[key] += amount;
+        return true;
+    }
+    return false;
+}
+
+// 专门用于覆盖赋值（如设置等级、设置总加成）
+function setState(key, value, source) {
+    const validSources = ['init', 'command', 'system'];
+    if (!validSources.includes(source)) {
+        _internalState.cheatFlag = true;
+        return false;
+    }
+    _internalState[key] = value;
+    return true;
+}
+
+// 处理背包数组的安全推入
+function pushInventory(item, source) {
+    if (source !== 'shop' && source !== 'command') {
+        _internalState.cheatFlag = true;
+        return false;
+    }
+    _internalState.inventory.push(item);
+    return true;
+}
 
 const shopItemsData = [
     [{id:1,name:"曲奇戒指",price:480,bonus:1,maxStack:5,icon:"fa-diamond",desc:"一枚刻有曲奇图案的戒指，小幅提升点击收益"},{id:2,name:"烘焙手套",price:1150,bonus:3,maxStack:5,icon:"fa-hand-paper-o",desc:"提高点击效率的专业手套"},{id:3,name:"幸运曲奇",price:2400,bonus:5,maxStack:5,icon:"fa-cookie",desc:"带来好运的特殊曲奇"},{id:4,name:"黄金搅拌器",price:4300,bonus:8,maxStack:5,icon:"fa-wrench",desc:"闪闪发光的黄金搅拌器"},{id:5,name:"曲奇护身符",price:7200,bonus:12,maxStack:5,icon:"fa-shield",desc:"保佑获得更多曲奇"},{id:6,name:"烘焙大师徽章",price:11500,bonus:18,maxStack:5,icon:"fa-trophy",desc:"证明烘焙技巧的徽章"},{id:7,name:"巧克力抹刀",price:19500,bonus:25,maxStack:5,icon:"fa-cutlery",desc:"涂满巧克力的专业抹刀"},{id:8,name:"魔法烤箱手套",price:34000,bonus:35,maxStack:5,icon:"fa-fire",desc:"带有魔力的烤箱手套，解锁下一排物品"}],

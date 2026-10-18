@@ -1,5 +1,5 @@
-// [模块 6] 作弊指令代码 (正式版可删掉此文件)
-function syncLastUpdate() { gameState.lastUpdate = Date.now(); }
+// [模块 6] 作弊指令代码
+function syncLastUpdate() { setState('lastUpdate', Date.now(), 'command'); }
 
 function handleCommand(cmd) {
     // 核心安全判断：如果 isDev 没定义，或者定义为 false，直接拦截
@@ -18,11 +18,21 @@ function handleCommand(cmd) {
     if (main === '/cookie' && parts[1] && parts[2]) {
         const num = parseNumberWithSuffix(parts[2], true);
         if (isNaN(num)) { addChatMessage("错误", "数量格式有误", System); return; }
-        if (parts[1] === 'add') { gameState.cookies += num; addChatMessage("指令", `曲奇增加 ${formatNumber(num)}`, System); }
-        else if (parts[1] === 'set') { gameState.cookies = num; addChatMessage("指令", `曲奇设为 ${formatNumber(gameState.cookies)}`, System); }
-        else if (parts[1] === 'remove') { gameState.cookies = Math.max(0, gameState.cookies - num); addChatMessage("指令", `曲奇减少 ${formatNumber(num)}`, System); }
+        
+        if (parts[1] === 'add') { 
+            modifyState('cookies', num, 'command'); 
+            addChatMessage("指令", `曲奇增加 ${formatNumber(num)}`, System); 
+        }
+        else if (parts[1] === 'set') { 
+            setState('cookies', num, 'command'); 
+            addChatMessage("指令", `曲奇设为 ${formatNumber(gameState.cookies)}`, System); 
+        }
+        else if (parts[1] === 'remove') { 
+            setState('cookies', Math.max(0, gameState.cookies - num), 'command'); 
+            addChatMessage("指令", `曲奇减少 ${formatNumber(num)}`, System); 
+        }
         else { addChatMessage("错误", "用法错误", System); return; }
-        syncLastUpdate(); updateUI(); return;
+        updateUI(); return;
     }
     if (main === '/shop' && parts[1] && parts[2]) {
         const level = parseInt(parts[2]);
@@ -36,18 +46,18 @@ function handleCommand(cmd) {
         const val = parseNumberWithSuffix(parts[3], true);
         if (isNaN(val)) { addChatMessage("错误", "数值格式有误", System); return; }
         if (parts[1] === 'click') {
-            if (parts[2] === 'set') gameState.upgradeLevel = Math.max(0, val);
-            else if (parts[2] === 'add') gameState.upgradeLevel += val;
-            else if (parts[2] === 'remove') gameState.upgradeLevel = Math.max(0, gameState.upgradeLevel - val);
+            if (parts[2] === 'set') setState('upgradeLevel', Math.max(0, val), 'command');
+            else if (parts[2] === 'add') setState('upgradeLevel', gameState.upgradeLevel + val, 'command');
+            else if (parts[2] === 'remove') setState('upgradeLevel', Math.max(0, gameState.upgradeLevel - val), 'command');
             else { addChatMessage("错误", "操作错误", System); return; }
-            gameState.clickValue = 5 + gameState.upgradeLevel * gameState.upgradeValueIncrease;
+            setState('clickValue', 5 + gameState.upgradeLevel * gameState.upgradeValueIncrease, 'command');
             checkUnlockSlotByLevel(); addChatMessage("指令", `点击等级调整为 ${gameState.upgradeLevel}`, System);
         } else if (parts[1] === 'rep') {
-            if (parts[2] === 'set') gameState.reputationLevel = Math.min(30, Math.max(0, val));
-            else if (parts[2] === 'add') gameState.reputationLevel = Math.min(30, gameState.reputationLevel + val);
-            else if (parts[2] === 'remove') gameState.reputationLevel = Math.max(0, gameState.reputationLevel - val);
+            if (parts[2] === 'set') setState('reputationLevel', Math.min(30, Math.max(0, val)), 'command');
+            else if (parts[2] === 'add') setState('reputationLevel', Math.min(30, gameState.reputationLevel + val), 'command');
+            else if (parts[2] === 'remove') setState('reputationLevel', Math.max(0, gameState.reputationLevel - val), 'command');
             else { addChatMessage("错误", "操作错误", System); return; }
-            gameState.autoValue = 1 + gameState.reputationLevel * gameState.reputationAutoGainIncrease;
+            setState('autoValue', 1 + gameState.reputationLevel * gameState.reputationAutoGainIncrease, 'command');
             addChatMessage("指令", `声望等级调整为 ${gameState.reputationLevel}`, System);
         } else { addChatMessage("错误", "用法错误", System); return; }
         syncLastUpdate(); updateUI(); return;
@@ -65,7 +75,7 @@ function handleCommand(cmd) {
             }
             calculateTotalBonus(); updateInventoryDisplay(); syncLastUpdate(); updateUI(); addChatMessage("指令", `给予 ${item.name} x${given}`, System);
         } else if (parts[1] === 'clear') {
-            gameState.inventory = gameState.inventory.filter(i => i.id !== id);
+            setState('inventory', gameState.inventory.filter(i => i.id !== id), 'command');
             calculateTotalBonus(); updateInventoryDisplay(); syncLastUpdate(); updateUI(); addChatMessage("指令", `清除 ${item.name}`, System);
         } else { addChatMessage("错误", "用法错误", System); }
         return;

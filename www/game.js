@@ -2,7 +2,8 @@
 
 function gainCookies(amount, event, isSilent=false){ 
     let finalAmount = isSilent ? amount : applyBuffValue(amount, 'click'); 
-    gameState.cookies += finalAmount; 
+    modifyState('cookies', finalAmount, 'click');
+    
     if(!isSilent && event){ 
         let fl=document.createElement('div'); fl.className='floating'; fl.innerText=`+${formatNumber(Math.floor(finalAmount))}`;
         let rect=cookieBtn.getBoundingClientRect(), x=event.clientX-rect.left, y=event.clientY-rect.top; 
@@ -10,21 +11,46 @@ function gainCookies(amount, event, isSilent=false){
     } 
     updateUI(); 
 }
-function spend(amount){ if(gameState.cookies>=amount){ gameState.cookies-=amount; updateUI(); return true; } return false; }
-function calculateTotalBonus(){ let total=0; for(let it of gameState.inventory){ let data=allShopItems.find(d=>d.id===it.id); if(data) total+=data.bonus*it.count; } gameState.totalItemBonus=total; }
+
+function spend(amount){ 
+    if(gameState.cookies>=amount){ 
+        
+        modifyState('cookies', -amount, 'shop'); 
+        updateUI(); 
+        return true; 
+    } 
+    return false; 
+}
+
+function calculateTotalBonus(){ 
+    let total=0; 
+    for(let it of gameState.inventory){ 
+        let data=allShopItems.find(d=>d.id===it.id); 
+        if(data) total+=data.bonus*it.count; 
+    } 
+    setState('totalItemBonus', total, 'system'); 
+}
 
 function buyItem(item){
     let existingStack=gameState.inventory.find(i=>i.id===item.id);
     if(existingStack && existingStack.count>=item.maxStack){ showToast(`已达最大数量 ${item.name}`,true); return; }
     if(!existingStack && gameState.inventory.length>=gameState.inventorySlots){ showToast("背包格子不足",true); return; }
+    
     if(gameState.cookies>=item.price){
-        gameState.cookies-=item.price;
-        if(existingStack) existingStack.count++; else gameState.inventory.push({id:item.id,count:1});
+        
+        modifyState('cookies', -item.price, 'shop');
+        
+        if(existingStack) existingStack.count++; 
+        else pushInventory({id:item.id,count:1}, 'shop'); 
+        
         calculateTotalBonus();
         let rowIdx=shopItemsData.findIndex(row=>row.some(i=>i.id===item.id));
         let isLast=shopItemsData[rowIdx][shopItemsData[rowIdx].length-1].id===item.id;
+        
         if(isLast && gameState.shopRowsUnlocked<shopItemsData.length && rowIdx+1===gameState.shopRowsUnlocked){
-            gameState.shopRowsUnlocked++; showToast(`✨ 解锁第${gameState.shopRowsUnlocked}排新商品！`);
+            // shopRowsUnlocked 未在敏感列表中，可以直接++
+            gameState.shopRowsUnlocked++; 
+            showToast(`✨ 解锁第${gameState.shopRowsUnlocked}排新商品！`);
         }
         renderShop(); updateInventoryDisplay(); updateUI(); showToast(`购买 ${item.name}`);
         addChatMessage("🍪系统", `购买了【${item.name}】, 点击收益+${item.bonus}`, System);
@@ -34,7 +60,11 @@ function buyItem(item){
 function decomposeItem(itemId){ 
     let idx=gameState.inventory.findIndex(i=>i.id===itemId); if(idx===-1) return; 
     let itemData=allShopItems.find(d=>d.id===itemId), priceBack=Math.floor(itemData.price*0.6); 
-    gameState.cookies+=priceBack; gameState.inventory[idx].count--; 
+    
+    
+    modifyState('cookies', priceBack, 'decompose'); 
+    
+    gameState.inventory[idx].count--; 
     if(gameState.inventory[idx].count<=0) gameState.inventory.splice(idx,1); 
     calculateTotalBonus(); updateInventoryDisplay(); updateUI(); 
     showToast(`分解返还 ${formatNumber(priceBack)} 曲奇`); 
@@ -44,23 +74,34 @@ function decomposeItem(itemId){
 function checkUnlockSlotByLevel(){ 
     let newSlotCount=4+ Math.floor((gameState.upgradeLevel- gameState.slotUnlockLevel)/gameState.slotUnlockInterval); 
     if(newSlotCount<4) newSlotCount=4; if(newSlotCount>gameState.maxInventorySlots) newSlotCount=gameState.maxInventorySlots; 
-    if(newSlotCount>gameState.inventorySlots){ gameState.inventorySlots=newSlotCount; updateInventoryDisplay(); showToast(`🎒 背包扩充至 ${gameState.inventorySlots} !`); } 
+    if(newSlotCount>gameState.inventorySlots){ 
+        gameState.inventorySlots=newSlotCount; 
+        updateInventoryDisplay(); 
+        showToast(`🎒 背包扩充至 ${gameState.inventorySlots} !`); 
+    } 
 }
 
 function upgradeClick(){ 
     let cost=calcUpgradeCost(gameState.upgradeLevel); 
     if(spend(cost)){ 
-        gameState.upgradeLevel++; gameState.clickValue+=gameState.upgradeValueIncrease; 
+        
+        modifyState('upgradeLevel', 1, 'upgrade');
+        modifyState('clickValue', gameState.upgradeValueIncrease, 'upgrade');
+        
         checkUnlockSlotByLevel(); updateUI(); 
         addChatMessage("⚡升级","点击等级提升！",Level); 
         cookieBtn.classList.add('level-up-animation'); setTimeout(()=>cookieBtn.classList.remove('level-up-animation'),300); 
     } 
 }
+
 function upgradeReputation(){ 
     if(gameState.reputationLevel>=30) return; 
     let cost=calcRepCost(gameState.reputationLevel); 
     if(spend(cost)){ 
-        gameState.reputationLevel++; gameState.autoValue+=gameState.reputationAutoGainIncrease; 
+        
+        modifyState('reputationLevel', 1, 'upgrade');
+        modifyState('autoValue', gameState.reputationAutoGainIncrease, 'upgrade');
+        
         updateUI(); addChatMessage("🌟 声望", `声望提升至 ${gameState.reputationLevel}`, Level); 
     } 
 }
