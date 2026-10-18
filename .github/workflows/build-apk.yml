@@ -73,7 +73,7 @@ jobs:
                   signingConfig signingConfigs.release\
               }' android/app/build.gradle
 
-            - name: Build Signed APK
+      - name: Build Signed APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
