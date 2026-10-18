@@ -47,17 +47,31 @@ jobs:
       - name: Rebuild with Win7 Patch
         run: pake "https://slfftz2011.github.io/Cookies.vs.Zombies/" --name "CookiesVsZombies" --width 1280 --height 800
 
+      - name: Rename MSI
+        shell: bash
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          if [[ "$TAG_NAME" == v* ]] || [[ "$TAG_NAME" == desktop-v* ]]; then
+            VERSION=$(echo "$TAG_NAME" | sed -E 's/^(desktop-)?v//')
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          
+          NEW_NAME="Cookies vs Zombies ${VERSION} (Windows 7).msi"
+          mv CookiesVsZombies.msi "$NEW_NAME"
+          echo "MSI_FILE=$NEW_NAME" >> $GITHUB_ENV
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-app
-          path: CookiesVsZombies.msi
+          name: desktop-app-win7
+          path: ${{ env.MSI_FILE }} # 使用重命名后的路径
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: CookiesVsZombies.msi
+          files: ${{ env.MSI_FILE }} # 使用重命名后的路径
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
